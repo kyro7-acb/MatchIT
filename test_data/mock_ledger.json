@@ -1,0 +1,37 @@
+[
+  {
+    "reference": "INV-2024-001",
+    "vendor":    "Himalayan Traders Pvt Ltd",
+    "date":      "15/01/2024",
+    "debit":     "45000.00",
+    "credit":    null
+  },
+  {
+    "reference": "INV2024002",
+    "vendor":    "Ktm Supplies Company",
+    "date":      "21/01/2024",
+    "debit":     "12500.50",
+    "credit":    null
+  },
+  {
+    "reference": "INV-2024-003",
+    "vendor":    "Nepal Electronics",
+    "date":      "22/01/2024",
+    "debit":     "7750.00",
+    "credit":    null
+  },
+  {
+    "reference": "INV-2024-004",
+    "vendor":    "Everest Goods Inc",
+    "date":      "25/01/2024",
+    "debit":     "33200.00",
+    "credit":    null
+  },
+  {
+    "reference": "REF-9999",
+    "vendor":    "Random Vendor XYZ",
+    "date":      "01/06/2024",
+    "debit":     "1.00",
+    "credit":    null
+  }
+]

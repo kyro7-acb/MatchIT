@@ -1,0 +1,15 @@
+# ── Core matching engine ──────────────────────────────────────────────────
+numpy>=1.24.0
+scipy>=1.11.0
+
+# ── OCR ───────────────────────────────────────────────────────────────────
+# CPU-only PaddlePaddle (replace with paddlepaddle-gpu for GPU inference)
+paddlepaddle>=2.6.0
+paddleocr>=2.7.0
+
+# ── Utilities ─────────────────────────────────────────────────────────────
+python-dateutil>=2.8.2   # robust date parsing fallback
+Pillow>=10.0.0            # image handling (required by PaddleOCR)
+
+# ── Dev / testing (optional) ──────────────────────────────────────────────
+pytest>=7.4.0
