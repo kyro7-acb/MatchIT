@@ -1,16 +1,3 @@
-"""
-services/classifier.py
------------------------
-Interpret similarity scores and assign a human-readable status label.
-
-Labels:
-  • auto_match  — high confidence; can be applied without human review
-  • review      — moderate confidence; a human should verify
-  • unmatched   — low confidence; no reliable match found
-
-Thresholds are defined in config.py and can be tuned without code changes.
-"""
-
 from __future__ import annotations
 
 from config import THRESHOLDS
@@ -24,17 +11,7 @@ ClassifiedMatch = dict  # keys: invoice_idx, ledger_idx, score, status
 
 
 def classify(score: float) -> str:
-    """
-    Map a similarity score to a status label.
-
-    Parameters
-    ----------
-    score : float ∈ [0, 1]
-
-    Returns
-    -------
-    str — one of 'auto_match', 'review', 'unmatched'
-    """
+    
     if score >= THRESHOLDS["auto_match"]:
         return "auto_match"
     elif score >= THRESHOLDS["review"]:
@@ -42,28 +19,13 @@ def classify(score: float) -> str:
     else:
         return "unmatched"
 
-
+# Enrich each MatchResult with status
 def classify_matches(
     matches: list[MatchResult],
     invoices: list[dict],
     ledger_entries: list[dict],
 ) -> list[ClassifiedMatch]:
-    """
-    Enrich each MatchResult with:
-      • status label (auto_match / review / unmatched)
-      • human-readable invoice ID  (invoice_number or index)
-      • human-readable ledger reference
-
-    Parameters
-    ----------
-    matches        : output of optimizer.optimize_matches()
-    invoices       : preprocessed invoice dicts
-    ledger_entries : preprocessed ledger entry dicts
-
-    Returns
-    -------
-    list of dicts ready for JSON serialisation or console display
-    """
+    
     results: list[ClassifiedMatch] = []
 
     for match in matches:
