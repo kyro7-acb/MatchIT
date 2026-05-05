@@ -1,20 +1,3 @@
-"""
-services/preprocess.py
------------------------
-Deterministic, ML-free normalization layer.
-
-Responsibilities:
-  • Lowercase strings
-  • Remove special characters / punctuation
-  • Strip vendor stop-words
-  • Normalize invoice / reference numbers
-  • Parse dates → datetime
-  • Parse amounts → float
-
-This layer is called after extract.py and BEFORE similarity.py.
-Clean input → reliable matching.
-"""
-
 from __future__ import annotations
 
 import re
@@ -22,22 +5,14 @@ from datetime import datetime
 from typing import Optional
 
 from config import VENDOR_STOPWORDS
-from utils import get_logger, parse_amount, parse_date
+from utils import get_logger
 
 logger = get_logger(__name__)
 
 
-# ---------------------------------------------------------------------------
-# String normalization
-# ---------------------------------------------------------------------------
-
+# String normalization by transitioning strings into lowercase, removing special characters and strip spaces
 def normalize_string(text: Optional[str]) -> str:
-    """
-    Full normalization pipeline for a text field:
-      1. Lowercase
-      2. Remove special characters (keep alphanumeric + spaces)
-      3. Collapse multiple spaces / strip
-    """
+    
     if not text:
         return ""
     text = text.lower()
@@ -47,10 +22,7 @@ def normalize_string(text: Optional[str]) -> str:
 
 
 def normalize_reference(text: Optional[str]) -> str:
-    """
-    Normalize invoice / ledger reference numbers.
-    Strips spaces, hyphens, slashes — keeps alphanumeric only.
-    """
+    
     if not text:
         return ""
     cleaned = text.upper()
@@ -60,32 +32,53 @@ def normalize_reference(text: Optional[str]) -> str:
 
 
 def normalize_vendor(text: Optional[str]) -> str:
-    """
-    Normalize a vendor / supplier name:
-      1. Standard string normalization
-      2. Remove legal-entity stop-words (pvt, ltd, inc, …)
-      3. Collapse whitespace
-    """
+    
     base = normalize_string(text)
     tokens = base.split()
     filtered = [t for t in tokens if t not in VENDOR_STOPWORDS]
     return " ".join(filtered).strip()
 
+# Date parsing
+_DATE_FORMATS = [
+    "%d/%m/%Y", "%m/%d/%Y", "%Y-%m-%d", "%d-%m-%Y",
+    "%d.%m.%Y", "%Y/%m/%d",
+    "%d %b %Y", "%d %B %Y",
+    "%b %d, %Y", "%B %d, %Y",
+    "%b %d %Y",  "%B %d %Y",
+    "%d/%m/%y",  "%m/%d/%y",
+]
 
-# ---------------------------------------------------------------------------
+def parse_date(date_str: str) -> Optional[datetime]:
+    
+    if not date_str:
+        return None
+    cleaned = re.sub(r"\s+", " ", date_str.strip().rstrip(","))
+    for fmt in _DATE_FORMATS:
+        try:
+            return datetime.strptime(cleaned, fmt)
+        except ValueError:
+            continue
+    return None
+
+# Amount parsing
+def parse_amount(amount_str: str) -> Optional[float]:
+    
+    if not amount_str:
+        return None
+    # Remove currency symbols and thousands separators
+    cleaned = re.sub(r"[^\d.]", "", str(amount_str))
+    # Handle multiple dots (keep only last as decimal point)
+    parts = cleaned.split(".")
+    if len(parts) > 2:
+        cleaned = "".join(parts[:-1]) + "." + parts[-1]
+    try:
+        return float(cleaned)
+    except ValueError:
+        return None
+
 # Invoice normalization
-# ---------------------------------------------------------------------------
-
 def preprocess_invoice(invoice: dict) -> dict:
-    """
-    Normalize a raw invoice dict produced by extract.py.
-
-    Input keys  : invoice_number, vendor_name, date, amount
-    Output adds : normalized_invoice_number, normalized_vendor,
-                  parsed_date (datetime | None), parsed_amount (float | None)
-
-    The original raw fields are preserved for auditability.
-    """
+    
     result = dict(invoice)  # shallow copy; don't mutate caller's dict
 
     raw_invoice_no = invoice.get("invoice_number") or ""
@@ -107,20 +100,9 @@ def preprocess_invoice(invoice: dict) -> dict:
     )
     return result
 
-
-# ---------------------------------------------------------------------------
 # Ledger row normalization
-# ---------------------------------------------------------------------------
-
 def preprocess_ledger_entry(entry: dict) -> dict:
-    """
-    Normalize a raw ledger row dict.
-
-    Input keys  : reference, vendor, date, debit, credit
-    Output adds : normalized_reference, normalized_vendor,
-                  parsed_date, debit_amount (float | None),
-                  credit_amount (float | None)
-    """
+    
     result = dict(entry)
 
     result["normalized_reference"] = normalize_reference(entry.get("reference") or "")
@@ -139,15 +121,11 @@ def preprocess_ledger_entry(entry: dict) -> dict:
     )
     return result
 
-
-# ---------------------------------------------------------------------------
 # Batch helpers
-# ---------------------------------------------------------------------------
 
 def preprocess_invoices(invoices: list[dict]) -> list[dict]:
     """Normalize a list of raw invoice dicts."""
     return [preprocess_invoice(inv) for inv in invoices]
-
 
 def preprocess_ledger(entries: list[dict]) -> list[dict]:
     """Normalize a list of raw ledger entry dicts."""
