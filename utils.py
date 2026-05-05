@@ -1,21 +1,9 @@
-"""
-utils.py
---------
-Shared utility functions used across the matching pipeline.
-"""
-
 import logging
-import re
-from datetime import datetime
-from typing import Optional
 
 from config import LOG_LEVEL
 
 
-# ---------------------------------------------------------------------------
 # Logging setup
-# ---------------------------------------------------------------------------
-
 def get_logger(name: str) -> logging.Logger:
     """Return a consistently-configured logger."""
     level = getattr(logging, LOG_LEVEL.upper(), logging.INFO)
@@ -27,67 +15,8 @@ def get_logger(name: str) -> logging.Logger:
     return logging.getLogger(name)
 
 
-# ---------------------------------------------------------------------------
-# Date parsing
-# ---------------------------------------------------------------------------
-
-_DATE_FORMATS = [
-    "%d/%m/%Y", "%m/%d/%Y", "%Y-%m-%d", "%d-%m-%Y",
-    "%d.%m.%Y", "%Y/%m/%d",
-    "%d %b %Y", "%d %B %Y",
-    "%b %d, %Y", "%B %d, %Y",
-    "%b %d %Y",  "%B %d %Y",
-    "%d/%m/%y",  "%m/%d/%y",
-]
-
-
-def parse_date(date_str: str) -> Optional[datetime]:
-    """
-    Try multiple date formats and return a datetime object, or None on failure.
-    Strips extraneous whitespace/punctuation before parsing.
-    """
-    if not date_str:
-        return None
-    cleaned = re.sub(r"\s+", " ", date_str.strip().rstrip(","))
-    for fmt in _DATE_FORMATS:
-        try:
-            return datetime.strptime(cleaned, fmt)
-        except ValueError:
-            continue
-    return None
-
-
-# ---------------------------------------------------------------------------
-# Amount parsing
-# ---------------------------------------------------------------------------
-
-def parse_amount(amount_str: str) -> Optional[float]:
-    """
-    Convert a raw amount string like '1,23,456.78' or '$45.00' to a float.
-    Returns None if parsing fails.
-    """
-    if not amount_str:
-        return None
-    # Remove currency symbols and thousands separators
-    cleaned = re.sub(r"[^\d.]", "", str(amount_str))
-    # Handle multiple dots (keep only last as decimal point)
-    parts = cleaned.split(".")
-    if len(parts) > 2:
-        cleaned = "".join(parts[:-1]) + "." + parts[-1]
-    try:
-        return float(cleaned)
-    except ValueError:
-        return None
-
-
-# ---------------------------------------------------------------------------
 # Console table printer
-# ---------------------------------------------------------------------------
-
 def print_match_table(results: list[dict]) -> None:
-    """
-    Print a human-readable table of match results to stdout.
-    """
     if not results:
         print("No results to display.")
         return

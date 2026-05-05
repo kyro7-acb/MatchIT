@@ -47,7 +47,7 @@ def levenshtein_distance(s1: str, s2: str) -> int:
         dp[0][j] = j          # cost of inserting all chars of s2[:j]
 
     for i in range(1, m + 1):
-        for j in range(1, n + 1):
+        for j in range(1, n + 1):#hello
             if s1[i - 1] == s2[j - 1]:
                 dp[i][j] = dp[i - 1][j - 1]   # no edit needed
             else:
