@@ -1,14 +1,3 @@
-"""
-services/extract.py
---------------------
-Convert a scanned invoice image → structured JSON using PaddleOCR
-plus rule-based field detection (regex + keyword + layout hints).
-
-Supports:
-  • Invoice fields  : invoice_number, vendor_name, date, amount
-  • Ledger tables   : rows of {reference, vendor, date, debit, credit}
-"""
-
 from __future__ import annotations
 
 import re
@@ -22,12 +11,9 @@ from utils import get_logger, parse_amount, parse_date
 logger = get_logger(__name__)
 
 
-# ---------------------------------------------------------------------------
-# PaddleOCR lazy import
-# ---------------------------------------------------------------------------
-
+# Returns PaddleOCR instance (lazy import)
 def _get_ocr():
-    """Lazily initialise PaddleOCR to avoid slow import at module load time."""
+    
     try:
         from paddleocr import PaddleOCR  # type: ignore
         return PaddleOCR(use_angle_cls=True, lang="en", show_log=False)
@@ -37,31 +23,25 @@ def _get_ocr():
         )
         sys.exit(1)
 
-
 _ocr_instance = None
 
-
+# PaddleOCR instance initializer
 def _ocr():
+    
     global _ocr_instance
     if _ocr_instance is None:
         _ocr_instance = _get_ocr()
     return _ocr_instance
 
-
-# ---------------------------------------------------------------------------
-# Data structures
-# ---------------------------------------------------------------------------
-
+# OCR's messy result to Tidy result
 class TextBlock:
-    """A single OCR result: text content + its bounding box."""
-
+    
     def __init__(self, text: str, bbox: list[list[float]]) -> None:
         self.text: str = text.strip()
         self.bbox: list[list[float]] = bbox  # [[x1,y1],[x2,y2],[x3,y3],[x4,y4]]
 
     @property
     def top_left_y(self) -> float:
-        """Vertical position — used for row-grouping in table extraction."""
         return self.bbox[0][1]
 
     @property
@@ -71,29 +51,20 @@ class TextBlock:
     def __repr__(self) -> str:  # pragma: no cover
         return f"TextBlock({self.text!r})"
 
-
-# ---------------------------------------------------------------------------
 # Core OCR runner
-# ---------------------------------------------------------------------------
-
 def run_paddle_ocr(image_path: str) -> list[Any]:
-    """
-    Run PaddleOCR on the given image and return raw results.
-    Each element is [[bbox_coords], (text, confidence)].
-    """
+    
     logger.info("Running PaddleOCR on: %s", image_path)
-    result = _ocr().ocr(image_path, cls=True)
+    result = _ocr().ocr(image_path, cls=True) # cls=True means "also run the angle classifier"
+    
     # PaddleOCR wraps results in an extra list when processing single images
     if result and isinstance(result[0], list) and result[0] and isinstance(result[0][0], list):
         return result[0]
     return result or []
 
-
+# Extracts text from the OCR's result
 def extract_text_blocks(ocr_result: list[Any]) -> list[TextBlock]:
-    """
-    Convert raw PaddleOCR output into a list of TextBlock objects,
-    sorted top-to-bottom, left-to-right.
-    """
+    
     blocks: list[TextBlock] = []
     for item in ocr_result:
         if item is None:
@@ -108,15 +79,9 @@ def extract_text_blocks(ocr_result: list[Any]) -> list[TextBlock]:
     return blocks
 
 
-# ---------------------------------------------------------------------------
-# Field finders — invoice
-# ---------------------------------------------------------------------------
-
+# Field finders using regular expression
 def _find_by_regex(blocks: list[TextBlock], pattern: re.Pattern) -> Optional[str]:
-    """
-    Search concatenated text for the first regex match.
-    Tries each block individually first, then falls back to the full concat.
-    """
+    
     for block in blocks:
         m = pattern.search(block.text)
         if m:
@@ -126,13 +91,9 @@ def _find_by_regex(blocks: list[TextBlock], pattern: re.Pattern) -> Optional[str
     m = pattern.search(full_text)
     return m.group(1).strip() if m else None
 
-
+# Field finders — vendor
 def _find_vendor_name(blocks: list[TextBlock]) -> Optional[str]:
-    """
-    Heuristic vendor detection:
-    1. Look for text near "vendor", "supplier", "billed by", "from" keywords.
-    2. Fall back to the first non-numeric, non-label block near the top.
-    """
+    
     keyword_re = re.compile(
         r"(?:vendor|supplier|billed\s*(?:by|to)|from|sold\s*by)\s*[:\-]?\s*(.*)",
         re.IGNORECASE,
@@ -150,25 +111,9 @@ def _find_vendor_name(blocks: list[TextBlock]) -> Optional[str]:
             return m.group().strip()
     return None
 
-
-# ---------------------------------------------------------------------------
 # Invoice extraction
-# ---------------------------------------------------------------------------
-
 def extract_invoice(image_path: str) -> dict:
-    """
-    Main entry point: image_path → structured invoice dict.
-
-    Returns
-    -------
-    {
-        "invoice_number": str | None,
-        "vendor_name":    str | None,
-        "date":           str | None,   # raw string; preprocess.py will parse
-        "amount":         str | None,   # raw string
-        "_raw_text":      str,          # full concat for debugging
-    }
-    """
+    
     if not Path(image_path).exists():
         raise FileNotFoundError(f"Image not found: {image_path}")
 
@@ -195,18 +140,11 @@ def extract_invoice(image_path: str) -> dict:
         "_raw_text":      raw_text,
     }
 
-
-# ---------------------------------------------------------------------------
-# Ledger extraction (tabular)
-# ---------------------------------------------------------------------------
-
+# Group TextBlocks that share approximately the same vertical position into logical rows (for table reconstruction).
 def _group_blocks_into_rows(
     blocks: list[TextBlock], row_tolerance: float = 15.0
 ) -> list[list[TextBlock]]:
-    """
-    Group TextBlocks that share approximately the same vertical position
-    into logical rows (for table reconstruction).
-    """
+    
     if not blocks:
         return []
 
@@ -225,12 +163,9 @@ def _group_blocks_into_rows(
     rows.append(sorted(current_row, key=lambda b: b.top_left_x))
     return rows
 
-
+# Extract ledger table headers
 def _detect_header_row(rows: list[list[TextBlock]]) -> Optional[int]:
-    """
-    Find the row index that contains column headers like
-    'reference', 'date', 'debit', 'credit', 'description', etc.
-    """
+
     header_keywords = {"reference", "ref", "date", "debit", "credit", "amount", "description", "narration"}
     for idx, row in enumerate(rows):
         row_text = {b.text.lower() for b in row}
@@ -239,11 +174,11 @@ def _detect_header_row(rows: list[list[TextBlock]]) -> Optional[int]:
             return idx
     return None
 
-
+# Maps header cell to a semantic column name
 def _classify_column_by_header(header_text: str) -> str:
-    """Map a header cell to a semantic column name."""
+    
     h = header_text.lower()
-    if re.search(r"ref|invoice|voucher|doc", h):
+    if re.search(r"ref|invoice|voucher|doc|reference", h):
         return "reference"
     if re.search(r"vendor|supplier|party|name", h):
         return "vendor"
@@ -257,23 +192,9 @@ def _classify_column_by_header(header_text: str) -> str:
         return "amount"
     return "other"
 
-
+# Ledger extraction (tabular)
 def extract_ledger(image_path: str) -> list[dict]:
-    """
-    Extract tabular ledger entries from a scanned ledger image.
-
-    Returns a list of row dicts:
-    [
-        {
-            "reference": str | None,
-            "vendor":    str | None,
-            "date":      str | None,
-            "debit":     str | None,
-            "credit":    str | None,
-        },
-        ...
-    ]
-    """
+    
     if not Path(image_path).exists():
         raise FileNotFoundError(f"Image not found: {image_path}")
 
@@ -312,12 +233,9 @@ def extract_ledger(image_path: str) -> list[dict]:
     logger.info("Extracted %d ledger rows.", len(entries))
     return entries
 
-
+# Ledger extraction (positional) only used when no recognisable header
 def _positional_ledger_extract(rows: list[list[TextBlock]]) -> list[dict]:
-    """
-    Fallback: no recognisable header. Attempt heuristic positional mapping.
-    Assumes columns roughly follow: reference | vendor | date | debit | credit
-    """
+    
     entries: list[dict] = []
     for row in rows:
         texts = [b.text for b in row]
