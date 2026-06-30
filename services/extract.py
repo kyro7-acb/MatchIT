@@ -6,7 +6,7 @@ from pathlib import Path
 from typing import Any, Optional
 
 from config import PATTERNS
-from utils import get_logger, parse_amount, parse_date
+from utils import get_logger
 
 logger = get_logger(__name__)
 
@@ -73,11 +73,10 @@ def extract_text_blocks(ocr_result: list[Any]) -> list[TextBlock]:
         if confidence < 0.3:          # discard very low-confidence detections
             continue
         blocks.append(TextBlock(text, bbox))
-
+        
     # Sort by vertical position then horizontal
     blocks.sort(key=lambda b: (round(b.top_left_y / 10) * 10, b.top_left_x))
     return blocks
-
 
 # Field finders using regular expression
 def _find_by_regex(blocks: list[TextBlock], pattern: re.Pattern) -> Optional[str]:
