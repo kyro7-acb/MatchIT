@@ -23,7 +23,7 @@ from typing import NamedTuple
 import numpy as np
 from scipy.optimize import linear_sum_assignment  # type: ignore
 
-from utils import get_logger
+from app.core.utils import get_logger
 
 logger = get_logger(__name__)
 

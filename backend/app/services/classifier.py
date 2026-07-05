@@ -1,8 +1,8 @@
 from __future__ import annotations
 
-from config import THRESHOLDS
-from services.optimizer import MatchResult
-from utils import get_logger
+from app.config import THRESHOLDS
+from app.services.optimizer import MatchResult
+from app.core.utils import get_logger
 
 logger = get_logger(__name__)
 

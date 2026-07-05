@@ -53,8 +53,8 @@ class FieldScore(BaseModel):
     score:          float
     weight:         float
     contribution:   float
-    invoice_value:  str
-    ledger_value:   str
+    invoice_value:  Optional[str] = ""
+    ledger_value:   Optional[str] = ""
 
 
 class FieldBreakdown(BaseModel):

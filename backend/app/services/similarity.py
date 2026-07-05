@@ -21,8 +21,8 @@ from typing import Optional
 
 import numpy as np
 
-from config import AMOUNT_TOLERANCE_PERCENT, DATE_TOLERANCE_DAYS, WEIGHTS
-from utils import get_logger
+from app.config import AMOUNT_TOLERANCE_PERCENT, DATE_TOLERANCE_DAYS, WEIGHTS
+from app.core.utils import get_logger
 
 logger = get_logger(__name__)
 

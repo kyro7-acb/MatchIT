@@ -1,6 +1,6 @@
 import logging
 
-from config import LOG_LEVEL
+from app.config import LOG_LEVEL
 
 
 # Logging setup

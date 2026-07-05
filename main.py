@@ -30,7 +30,7 @@ from services.preprocess import preprocess_invoices, preprocess_ledger
 from services.similarity import build_score_matrix
 from services.optimizer import optimize_matches, filter_candidates
 from services.classifier import classify_matches
-from utils import get_logger, print_match_table
+from backend.app.utils import get_logger, print_match_table
 
 logger = get_logger(__name__)
 

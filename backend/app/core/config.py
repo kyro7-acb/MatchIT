@@ -47,7 +47,7 @@ UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
 # ---------------------------------------------------------------------------
 DATABASE_URL = os.getenv(
     "DATABASE_URL",
-    "postgresql+asyncpg://matchit:matchit@localhost:5432/matchit"
+    "postgresql+asyncpg://postgres:ayush123%40K@localhost:5432/postgres"
 )
 
 # ---------------------------------------------------------------------------

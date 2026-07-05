@@ -271,6 +271,44 @@ def _find_by_regex(blocks: list[TextBlock], pattern: re.Pattern) -> Optional[str
     return m.group(1).strip() if m else None
 
 
+def _find_invoice_number(blocks: list[TextBlock]) -> Optional[str]:
+    label_patterns = [
+        re.compile(r"(?:invoice|inv|bill|doc|voucher)\s*(?:no|number|num|#)?\s*[:#\-]?\s*([A-Z0-9][A-Z0-9/\-.]{1,20})", re.IGNORECASE),
+        re.compile(r"(?:no|number|num)\s*[:#\-]?\s*([A-Z0-9][A-Z0-9/\-.]{1,20})", re.IGNORECASE),
+    ]
+    for block in blocks:
+        text = block.text.strip()
+        if not text:
+            continue
+        for pattern in label_patterns:
+            m = pattern.search(text)
+            if m:
+                candidate = m.group(1).strip(" .,:;")
+                if candidate and candidate.lower() not in {"invoice", "inv", "bill", "doc", "voucher", "no", "number", "num"}:
+                    return candidate
+
+    full_text = " ".join(b.text for b in blocks)
+    for pattern in label_patterns:
+        m = pattern.search(full_text)
+        if m:
+            candidate = m.group(1).strip(" .,:;")
+            if candidate and candidate.lower() not in {"invoice", "inv", "bill", "doc", "voucher", "no", "number", "num"}:
+                return candidate
+
+    for block in blocks:
+        text = block.text.strip()
+        if not text:
+            continue
+        if re.search(r"(?:invoice|bill|date|amount|total|due|balance|customer|phone|email|address|terms)", text, re.IGNORECASE):
+            continue
+        for candidate in re.findall(r"\b(?:INV|INVOICE|BILL|DOC|PO|ORDER)[-# ]?([A-Z0-9][A-Z0-9/\-.]{1,20})\b", text, re.IGNORECASE):
+            return candidate.strip(" .,:;")
+        for candidate in re.findall(r"\b([A-Z]{1,4}[-_/]?\d{2,8}|[A-Z0-9]{2,10}[-_/][A-Z0-9]{2,10})\b", text, re.IGNORECASE):
+            if len(candidate) <= 20 and not re.search(r"^(?:date|amount|total|due|balance|invoice|bill)$", candidate, re.IGNORECASE):
+                return candidate
+    return None
+
+
 def _find_vendor_name(blocks: list[TextBlock]) -> Optional[str]:
     keyword_re = re.compile(
         r"(?:vendor|supplier|billed\s*(?:by|to)|from|sold\s*by)\s*[:\-]?\s*(.*)",
@@ -280,6 +318,18 @@ def _find_vendor_name(blocks: list[TextBlock]) -> Optional[str]:
         m = keyword_re.search(block.text)
         if m and m.group(1).strip():
             return m.group(1).strip()
+
+    for block in blocks[:12]:
+        text = block.text.strip()
+        if not text:
+            continue
+        if re.search(r"(?:invoice|bill|date|amount|total|due|balance|customer|phone|email|address|terms|payment)", text, re.IGNORECASE):
+            continue
+        if len(text.split()) < 2:
+            continue
+        if re.match(r"^[A-Z][A-Za-z0-9&.,'()/-]+(?:\s+[A-Z][A-Za-z0-9&.,'()/-]+){0,5}$", text):
+            return text
+
     company_re = re.compile(
         r"[A-Z][a-z]+(?:\s+[A-Z][a-z]+){0,4}(?:\s+(?:Pvt|Ltd|Inc|LLC|Co)\.?)?"
     )
@@ -326,7 +376,7 @@ def _extract_invoice_from_image(image_path: str) -> dict:
     parsed = _run_structure_v3(image_path)
     blocks = parsed["blocks"]
 
-    invoice_number = _find_by_regex(blocks, PATTERNS["invoice_number"])
+    invoice_number = _find_invoice_number(blocks)
     vendor_name    = _find_vendor_name(blocks)
     date_str       = _find_by_regex(blocks, PATTERNS["date"])
     amount_str     = _find_by_regex(blocks, PATTERNS["amount"])
@@ -357,7 +407,7 @@ def _extract_invoice_from_pdf(pdf_path: str) -> dict:
 
     all_blocks.sort(key=lambda b: (round(b.top_left_y / 10) * 10, b.top_left_x))
 
-    invoice_number = _find_by_regex(all_blocks, PATTERNS["invoice_number"])
+    invoice_number = _find_invoice_number(all_blocks)
     vendor_name    = _find_vendor_name(all_blocks)
     date_str       = _find_by_regex(all_blocks, PATTERNS["date"])
     amount_str     = _find_by_regex(all_blocks, PATTERNS["amount"])
@@ -669,12 +719,24 @@ def extract_invoices_from_dataframe(file_path: str) -> list[dict]:
     df.columns = [str(c).strip().lower() for c in df.columns]
     df = df.fillna("")
 
-    col_aliases = {
-        "invoice_number": ["invoice_number", "invoice no", "inv no", "invoice_no", "number"],
-        "vendor_name":    ["vendor_name", "vendor", "supplier", "party"],
-        "date":           ["date", "invoice_date"],
-        "amount":         ["amount", "total", "amt", "total_amount", "net_amount"],
-    }
+    col_aliases ={
+    "invoice_number": [
+        "invoice_number", "invoice number", "invoice no",
+        "inv no", "inv number", "invoice_no", "number", "invoice"
+    ],
+    "vendor_name": [
+        "vendor_name", "vendor name", "vendor",
+        "supplier", "supplier name", "party", "company"
+    ],
+    "date": [
+        "date", "invoice date", "invoice_date",
+        "txn date", "transaction date"
+    ],
+    "amount": [
+        "amount", "total", "amt",                   
+        "total amount", "total_amount", "net amount", "net_amount"
+    ],
+}
 
     def _find_col(aliases):
         for a in aliases:

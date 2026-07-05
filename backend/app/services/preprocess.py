@@ -4,8 +4,8 @@ import re
 from datetime import datetime
 from typing import Optional
 
-from config import VENDOR_STOPWORDS
-from utils import get_logger
+from app.config import VENDOR_STOPWORDS
+from app.core.utils import get_logger
 
 logger = get_logger(__name__)
 

@@ -77,33 +77,36 @@ def compute_field_breakdown(invoice: dict, ledger: dict) -> dict:
     s_amt  = amount_similarity(invoice.get("parsed_amount"), ledger_amount)
 
     w = WEIGHTS
+    def _stringify(value: object) -> str:
+        return "" if value is None else str(value)
+
     return {
         "invoice_number": {
             "score": round(s_inv, 4),
             "weight": w["invoice_number"],
             "contribution": round(s_inv * w["invoice_number"], 4),
-            "invoice_value": invoice.get("invoice_number", ""),
-            "ledger_value":  ledger.get("reference", ""),
+            "invoice_value": _stringify(invoice.get("invoice_number")),
+            "ledger_value":  _stringify(ledger.get("reference")),
         },
         "vendor": {
             "score": round(s_ven, 4),
             "weight": w["vendor"],
             "contribution": round(s_ven * w["vendor"], 4),
-            "invoice_value": invoice.get("vendor_name", ""),
-            "ledger_value":  ledger.get("vendor", ""),
+            "invoice_value": _stringify(invoice.get("vendor_name")),
+            "ledger_value":  _stringify(ledger.get("vendor")),
         },
         "date": {
             "score": round(s_date, 4),
             "weight": w["date"],
             "contribution": round(s_date * w["date"], 4),
-            "invoice_value": str(invoice.get("date", "") or ""),
-            "ledger_value":  str(ledger.get("date", "") or ""),
+            "invoice_value": _stringify(invoice.get("date")),
+            "ledger_value":  _stringify(ledger.get("date")),
         },
         "amount": {
             "score": round(s_amt, 4),
             "weight": w["amount"],
             "contribution": round(s_amt * w["amount"], 4),
-            "invoice_value": str(invoice.get("amount", "") or ""),
-            "ledger_value":  str(ledger.get("debit", "") or ledger.get("credit", "") or ""),
+            "invoice_value": _stringify(invoice.get("amount")),
+            "ledger_value":  _stringify(ledger.get("debit") or ledger.get("credit")),
         },
     }
