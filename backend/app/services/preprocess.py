@@ -12,7 +12,7 @@ logger = get_logger(__name__)
 
 # String normalization by transitioning strings into lowercase, removing special characters and strip spaces
 def normalize_string(text: Optional[str]) -> str:
-    
+
     if not text:
         return ""
     text = text.lower()
@@ -22,17 +22,30 @@ def normalize_string(text: Optional[str]) -> str:
 
 
 def normalize_reference(text: Optional[str]) -> str:
-    
+
     if not text:
         return ""
     cleaned = text.upper()
     cleaned = re.sub(r"[\s\-/]", "", cleaned)  # remove separators
     cleaned = re.sub(r"[^A-Z0-9]", "", cleaned)
+
+    # Invoice/voucher numbers are frequently zero-padded inconsistently
+    # between systems — an invoice printed as "0761" is recorded in a
+    # ledger narration as "761". Both refer to the same document, so a
+    # purely numeric reference is normalized to its integer form (no
+    # leading zeros) so the two representations compare equal instead of
+    # only getting partial Levenshtein credit for an "extra" character.
+    # Purely alphabetic/alphanumeric references (e.g. "PI0110") are left
+    # untouched, since a leading zero there may be a meaningful part of an
+    # alphanumeric code rather than zero-padding of a number.
+    if cleaned.isdigit():
+        cleaned = str(int(cleaned)) if cleaned else cleaned
+
     return cleaned
 
 
 def normalize_vendor(text: Optional[str]) -> str:
-    
+
     base = normalize_string(text)
     tokens = base.split()
     filtered = [t for t in tokens if t not in VENDOR_STOPWORDS]
@@ -46,10 +59,17 @@ _DATE_FORMATS = [
     "%b %d, %Y", "%B %d, %Y",
     "%b %d %Y",  "%B %d %Y",
     "%d/%m/%y",  "%m/%d/%y",
+    # Dash- and dot-separated abbreviated/full month names — this is the
+    # format most ERP/accounting ledger exports actually use for their
+    # "DOC Date" column (e.g. "01-Feb-2026", "22-Feb-26"), and it was
+    # previously missing entirely, silently returning None for every
+    # ledger date and forcing date_similarity to 0.0 on every match.
+    "%d-%b-%Y", "%d-%B-%Y", "%d-%b-%y", "%d-%B-%y",
+    "%d.%b.%Y", "%d.%B.%Y",
 ]
 
 def parse_date(date_str: str) -> Optional[datetime]:
-    
+
     if not date_str:
         return None
     cleaned = re.sub(r"\s+", " ", date_str.strip().rstrip(","))
@@ -58,11 +78,12 @@ def parse_date(date_str: str) -> Optional[datetime]:
             return datetime.strptime(cleaned, fmt)
         except ValueError:
             continue
+    logger.warning("parse_date: could not parse date string %r with any known format.", date_str)
     return None
 
 # Amount parsing
 def parse_amount(amount_str: str) -> Optional[float]:
-    
+
     if not amount_str:
         return None
     # Remove currency symbols and thousands separators
@@ -78,7 +99,7 @@ def parse_amount(amount_str: str) -> Optional[float]:
 
 # Invoice normalization
 def preprocess_invoice(invoice: dict) -> dict:
-    
+
     result = dict(invoice)  # shallow copy; don't mutate caller's dict
 
     raw_invoice_no = invoice.get("invoice_number") or ""
@@ -102,7 +123,7 @@ def preprocess_invoice(invoice: dict) -> dict:
 
 # Ledger row normalization
 def preprocess_ledger_entry(entry: dict) -> dict:
-    
+
     result = dict(entry)
 
     result["normalized_reference"] = normalize_reference(entry.get("reference") or "")
