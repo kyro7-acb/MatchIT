@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from app.config import THRESHOLDS
+from app.core.config import THRESHOLDS
 from app.services.optimizer import MatchResult
 from app.core.utils import get_logger
 

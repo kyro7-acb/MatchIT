@@ -1,36 +1,14 @@
-"""
-services/optimizer.py
-----------------------
-Enforce one-to-one matching between invoices and ledger entries
-using the Hungarian algorithm (scipy.optimize.linear_sum_assignment).
-
-Why Hungarian instead of greedy?
-  • Greedy picks the highest score for each invoice independently,
-    which can assign two invoices to the same ledger entry.
-  • Hungarian finds the globally optimal assignment that maximises
-    the total similarity — no duplicates.
-
-Core idea:
-  score_matrix[i][j]  → similarity(invoice_i, ledger_j)
-  cost_matrix[i][j]   = 1 - score_matrix[i][j]   (Hungarian minimises cost)
-  linear_sum_assignment(cost_matrix) → optimal row_indices, col_indices
-"""
-
 from __future__ import annotations
 
 from typing import NamedTuple
 
 import numpy as np
-from scipy.optimize import linear_sum_assignment  # type: ignore
+from scipy.optimize import linear_sum_assignment
 
 from app.core.utils import get_logger
 
 logger = get_logger(__name__)
 
-
-# ---------------------------------------------------------------------------
-# Result type
-# ---------------------------------------------------------------------------
 
 class MatchResult(NamedTuple):
     invoice_idx: int    # index into the invoices list
@@ -38,27 +16,9 @@ class MatchResult(NamedTuple):
     score:       float  # similarity score ∈ [0, 1]
 
 
-# ---------------------------------------------------------------------------
 # Optimizer
-# ---------------------------------------------------------------------------
-
 def optimize_matches(score_matrix: np.ndarray) -> list[MatchResult]:
-    """
-    Apply the Hungarian algorithm to find the globally optimal one-to-one
-    assignment of invoices to ledger entries.
 
-    Parameters
-    ----------
-    score_matrix : np.ndarray of shape (n_invoices, n_ledger)
-        Each cell score_matrix[i][j] is the similarity of invoice i to ledger j.
-
-    Returns
-    -------
-    list[MatchResult]
-        One MatchResult per invoice (row), sorted by invoice index.
-        If there are fewer ledger entries than invoices, some invoices will be
-        matched to their best available candidate (the algorithm handles this).
-    """
     if score_matrix.size == 0:
         logger.warning("Empty score matrix — no matches to compute.")
         return []
@@ -72,9 +32,6 @@ def optimize_matches(score_matrix: np.ndarray) -> list[MatchResult]:
     # Hungarian minimises cost → convert similarity → cost
     cost_matrix = 1.0 - score_matrix
 
-    # linear_sum_assignment handles non-square matrices:
-    # if n_invoices > n_ledger, some ledger entries are shared
-    # (which we accept as a limitation when ledger is smaller than invoices).
     row_ind, col_ind = linear_sum_assignment(cost_matrix)
 
     matches: list[MatchResult] = []
@@ -96,22 +53,13 @@ def optimize_matches(score_matrix: np.ndarray) -> list[MatchResult]:
     return matches
 
 
-# ---------------------------------------------------------------------------
 # Candidate filtering (optional pre-step to reduce matrix size)
-# ---------------------------------------------------------------------------
-
 def filter_candidates(
     invoices: list[dict],
     ledger_entries: list[dict],
     max_days: int = 60,
 ) -> tuple[list[dict], list[dict]]:
-    """
-    Optional pre-filter: discard ledger entries that are more than `max_days`
-    away from every invoice date.  Reduces matrix size for large datasets.
 
-    Returns a (possibly smaller) pair of (invoices, ledger_entries).
-    Both original lists are returned unchanged if dates are unavailable.
-    """
     # Only filter when at least one invoice has a parsed date
     invoice_dates = [
         inv["parsed_date"] for inv in invoices

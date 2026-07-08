@@ -796,6 +796,14 @@ def _fallback_vendor_from_narration(narration: Optional[str]) -> Optional[str]:
 _INVOICE_REF_IN_NARRATION_PATTERNS = [
     re.compile(r"ref\.?\s*doc\.?\s*no\.?\s*[:\-]?\s*([A-Za-z0-9/\-]+)", re.IGNORECASE),
     re.compile(r"\binvoice\s*no\.?\s*[:\-]?\s*([A-Za-z0-9/\-]+)", re.IGNORECASE),
+    # Abbreviated form ("Inv No. 329", "Inv No Ti3412-Goc-82-83", "Inv.N.002913")
+    # — a different data-entry convention from "Ref. Doc No." above, but just
+    # as common. Deliberately checked after the full "invoice no" pattern
+    # (not before) even though "inv" is a prefix of "invoice", because the
+    # match position after "inv" in "Invoice" is "oice", not "n", so there's
+    # no actual overlap risk — this is just keeping the more specific/common
+    # spelling first for readability of the pattern list.
+    re.compile(r"\binv\.?\s*n(?:o)?\.?\s*[:\-]?\s*([A-Za-z0-9/\-]+)", re.IGNORECASE),
     re.compile(r"\bbill\s*no\.?\s*[:\-]?\s*([0-9]+)", re.IGNORECASE),
 ]
 
@@ -956,7 +964,11 @@ def extract_ledger_from_dataframe(file_path: str) -> list[dict]:
 # generic ones (e.g. "total") that could otherwise grab a line-item subtotal.
 _INVOICE_FORM_FIELD_LABELS: dict[str, list[str]] = {
     "invoice_number": ["invoice no", "tax invoice no", "bill no"],
-    "date":           ["invoice date", "bill date"],
+    # Ordered by specificity — different vendors label the same concept
+    # differently ("Invoice Date", "Transaction Date", "Date of Issue", or
+    # just bare "Date"). Bare "date" is deliberately last so a more
+    # specific label is preferred whenever one exists on the document.
+    "date":           ["invoice date", "bill date", "transaction date", "date of issue", "date"],
     "amount":         ["grand total", "net amount", "invoice amount", "total amount"],
 }
 
@@ -964,7 +976,7 @@ _INVOICE_FORM_FIELD_LABELS: dict[str, list[str]] = {
 # though they share a word (e.g. "Invoice Miti" is a Bikram Sambat date,
 # not the Gregorian date we want; "Customer" is the buyer, not the vendor).
 _INVOICE_FORM_LABEL_EXCLUDES: dict[str, list[str]] = {
-    "date": ["miti"],
+    "date": ["miti", "print date"],
 }
 
 # Generic titles/words that show up as a lone cell near the top of an

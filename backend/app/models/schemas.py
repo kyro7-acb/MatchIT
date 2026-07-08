@@ -10,9 +10,7 @@ from datetime import datetime
 from pydantic import BaseModel, Field
 
 
-# ---------------------------------------------------------------------------
 # Upload responses
-# ---------------------------------------------------------------------------
 
 class ExtractedInvoice(BaseModel):
     id:             str
@@ -45,9 +43,7 @@ class UploadResponse(BaseModel):
     items:      List[ExtractedInvoice | ExtractedLedgerEntry]
 
 
-# ---------------------------------------------------------------------------
 # Field breakdown (explainability)
-# ---------------------------------------------------------------------------
 
 class FieldScore(BaseModel):
     score:          float
@@ -64,9 +60,7 @@ class FieldBreakdown(BaseModel):
     amount:         FieldScore
 
 
-# ---------------------------------------------------------------------------
 # Match result
-# ---------------------------------------------------------------------------
 
 class MatchedPair(BaseModel):
     match_id:       str
@@ -104,18 +98,14 @@ class MatchResponse(BaseModel):
     created_at: datetime
 
 
-# ---------------------------------------------------------------------------
 # Override request
-# ---------------------------------------------------------------------------
 
 class OverrideRequest(BaseModel):
     status: str = Field(..., pattern="^(auto_match|review|unmatched|confirmed|rejected)$")
     note:   Optional[str] = None
 
 
-# ---------------------------------------------------------------------------
 # Session history
-# ---------------------------------------------------------------------------
 
 class SessionSummary(BaseModel):
     session_id:     str

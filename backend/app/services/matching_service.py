@@ -1,15 +1,3 @@
-"""
-backend/app/services/matching_service.py
------------------------------------------
-Orchestrates the full matching pipeline:
-  extract → preprocess → candidate_filter → score → optimize → classify
-
-Additionally:
-  - Records skipped items with reasons
-  - Builds field-level explainability breakdown for every match
-  - Persists everything to PostgreSQL
-"""
-
 from __future__ import annotations
 
 import uuid
@@ -43,8 +31,7 @@ async def run_full_pipeline(
     db: AsyncSession,
 ) -> MatchResponse:
     """
-    Run the complete matching pipeline for a session.
-    Invoices and ledger entries must already be saved in DB for this session.
+    Run the complete matching pipeline for a session. Invoices and ledger entries must already be saved in DB for this session.
     """
     # ── 1. Load from DB ──────────────────────────────────────────────────
     inv_rows = (await db.execute(
@@ -311,10 +298,7 @@ async def get_cached_result(session_id: str, db: AsyncSession) -> Optional[Match
     )
 
 
-# ---------------------------------------------------------------------------
 # ORM → dict helpers
-# ---------------------------------------------------------------------------
-
 def _invoice_orm_to_dict(r: Invoice) -> dict:
     return {
         "invoice_number": r.invoice_number,

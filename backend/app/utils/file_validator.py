@@ -27,7 +27,7 @@ def detect_file_type(filename: str, header: bytes) -> FileType:
     """Detect file type from magic bytes + extension."""
     for magic, ftype in MAGIC_BYTES.items():
         if header.startswith(magic):
-            return ftype  # type: ignore
+            return ftype  
 
     ext = Path(filename).suffix.lower()
     if ext == ".csv":

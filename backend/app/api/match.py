@@ -1,13 +1,3 @@
-"""
-backend/app/api/match.py
--------------------------
-POST /api/match             — run pipeline for a session
-GET  /api/match/{session_id} — retrieve cached results
-POST /api/match/{match_id}/override — human override
-GET  /api/sessions           — list past sessions
-GET  /api/match/{session_id}/export — download results as JSON or CSV
-"""
-
 import csv
 import io
 import json
@@ -27,19 +17,14 @@ from app.services.matching_service import run_full_pipeline, get_cached_result
 router = APIRouter()
 logger = get_logger(__name__)
 
-
-# ---------------------------------------------------------------------------
 # POST /api/match
-# ---------------------------------------------------------------------------
-
 @router.post("/match", response_model=MatchResponse)
 async def run_match(
     session_id: str,
     db: AsyncSession = Depends(get_db),
 ):
     """
-    Run the full matching pipeline for a session.
-    Returns cached result if already computed.
+    Run the full matching pipeline for a session. Returns cached result if already computed.
     """
     # Check cache first
     cached = await get_cached_result(session_id, db)
@@ -60,11 +45,7 @@ async def run_match(
         logger.error("Pipeline error for session %s: %s", session_id, e)
         raise HTTPException(status_code=500, detail=f"Matching pipeline error: {e}")
 
-
-# ---------------------------------------------------------------------------
 # GET /api/match/{session_id}
-# ---------------------------------------------------------------------------
-
 @router.get("/match/{session_id}", response_model=MatchResponse)
 async def get_match_result(
     session_id: str,
@@ -80,10 +61,7 @@ async def get_match_result(
     return result
 
 
-# ---------------------------------------------------------------------------
 # POST /api/match/{match_id}/override
-# ---------------------------------------------------------------------------
-
 @router.post("/match/{match_id}/override")
 async def override_match(
     match_id: str,
@@ -91,8 +69,7 @@ async def override_match(
     db:       AsyncSession = Depends(get_db),
 ):
     """
-    Manually override the status of a match result.
-    Records who changed it and when.
+    Manually override the status of a match result. Records who changed it and when.
     """
     mr = await db.get(MatchResultDB, match_id)
     if not mr:
@@ -108,11 +85,7 @@ async def override_match(
 
     return {"message": f"Match '{match_id}' overridden to '{body.status}'.", "match_id": match_id}
 
-
-# ---------------------------------------------------------------------------
 # GET /api/sessions
-# ---------------------------------------------------------------------------
-
 @router.get("/sessions", response_model=list[SessionSummary])
 async def list_sessions(
     limit:  int = Query(20, ge=1, le=100),
@@ -155,11 +128,7 @@ async def list_sessions(
 
     return summaries
 
-
-# ---------------------------------------------------------------------------
 # GET /api/match/{session_id}/export
-# ---------------------------------------------------------------------------
-
 @router.get("/match/{session_id}/export")
 async def export_results(
     session_id: str,

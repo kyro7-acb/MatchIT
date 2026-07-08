@@ -4,7 +4,7 @@ import re
 from datetime import datetime
 from typing import Optional
 
-from app.config import VENDOR_STOPWORDS
+from app.core.config import VENDOR_STOPWORDS
 from app.core.utils import get_logger
 
 logger = get_logger(__name__)
@@ -29,15 +29,6 @@ def normalize_reference(text: Optional[str]) -> str:
     cleaned = re.sub(r"[\s\-/]", "", cleaned)  # remove separators
     cleaned = re.sub(r"[^A-Z0-9]", "", cleaned)
 
-    # Invoice/voucher numbers are frequently zero-padded inconsistently
-    # between systems — an invoice printed as "0761" is recorded in a
-    # ledger narration as "761". Both refer to the same document, so a
-    # purely numeric reference is normalized to its integer form (no
-    # leading zeros) so the two representations compare equal instead of
-    # only getting partial Levenshtein credit for an "extra" character.
-    # Purely alphabetic/alphanumeric references (e.g. "PI0110") are left
-    # untouched, since a leading zero there may be a meaningful part of an
-    # alphanumeric code rather than zero-padding of a number.
     if cleaned.isdigit():
         cleaned = str(int(cleaned)) if cleaned else cleaned
 
@@ -59,25 +50,30 @@ _DATE_FORMATS = [
     "%b %d, %Y", "%B %d, %Y",
     "%b %d %Y",  "%B %d %Y",
     "%d/%m/%y",  "%m/%d/%y",
-    # Dash- and dot-separated abbreviated/full month names — this is the
-    # format most ERP/accounting ledger exports actually use for their
-    # "DOC Date" column (e.g. "01-Feb-2026", "22-Feb-26"), and it was
-    # previously missing entirely, silently returning None for every
-    # ledger date and forcing date_similarity to 0.0 on every match.
     "%d-%b-%Y", "%d-%B-%Y", "%d-%b-%y", "%d-%B-%y",
     "%d.%b.%Y", "%d.%B.%Y",
 ]
 
 def parse_date(date_str: str) -> Optional[datetime]:
-
+ 
     if not date_str:
         return None
     cleaned = re.sub(r"\s+", " ", date_str.strip().rstrip(","))
     for fmt in _DATE_FORMATS:
         try:
-            return datetime.strptime(cleaned, fmt)
+            parsed = datetime.strptime(cleaned, fmt)
         except ValueError:
             continue
+ 
+        if not (parsed.year >= datetime.now().year + 1):
+            logger.warning(
+                "parse_date: %r parsed to implausible year %d (likely a "
+                "non-Gregorian calendar date) — treating as unparseable.",
+                date_str, parsed.year,
+            )
+            return None
+ 
+        return parsed
     logger.warning("parse_date: could not parse date string %r with any known format.", date_str)
     return None
 

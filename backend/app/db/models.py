@@ -1,17 +1,3 @@
-"""
-backend/app/db/models.py
-------------------------
-SQLAlchemy ORM models for PostgreSQL.
-
-Tables
-------
-upload_sessions  — one row per batch upload (invoice set + ledger set)
-invoices         — one row per extracted invoice
-ledger_entries   — one row per ledger row
-match_results    — one row per invoice↔ledger matched pair
-skipped_items    — records filtered-out items with reason
-"""
-
 from datetime import datetime
 from sqlalchemy import (
     Column, String, Float, Integer, DateTime, Text,

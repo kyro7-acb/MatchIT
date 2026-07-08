@@ -1,10 +1,3 @@
-"""
-backend/app/api/upload.py
---------------------------
-POST /api/upload-invoice  — accept one or more invoice files
-POST /api/upload-ledger   — accept one or more ledger files
-"""
-
 import uuid
 from pathlib import Path
 from typing import List
@@ -30,21 +23,12 @@ from app.services.extract import (
 router = APIRouter()
 logger = get_logger(__name__)
 
-
-# ---------------------------------------------------------------------------
 # POST /api/upload-invoice
-# ---------------------------------------------------------------------------
-
 @router.post("/upload-invoice", response_model=UploadResponse)
 async def upload_invoice(
     files: List[UploadFile] = File(...),
     db:    AsyncSession     = Depends(get_db),
 ):
-    """
-    Accept one or more invoice files (image, PDF, or Excel/CSV).
-    Extracts structured fields and stores them in DB.
-    Returns session_id for use in /api/match.
-    """
     session_id  = str(uuid.uuid4())
     session_dir = UPLOAD_DIR / session_id / "invoices"
 
@@ -113,20 +97,14 @@ async def upload_invoice(
     )
 
 
-# ---------------------------------------------------------------------------
 # POST /api/upload-ledger
-# ---------------------------------------------------------------------------
-
 @router.post("/upload-ledger", response_model=UploadResponse)
 async def upload_ledger(
     session_id: str,
     files:      List[UploadFile] = File(...),
     db:         AsyncSession     = Depends(get_db),
 ):
-    """
-    Accept one or more ledger files (Excel/CSV preferred, or image/PDF).
-    Attaches entries to an existing session (created by upload-invoice).
-    """
+
     session_row = await db.get(UploadSession, session_id)
     if not session_row:
         raise HTTPException(status_code=404, detail=f"Session '{session_id}' not found.")

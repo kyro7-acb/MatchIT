@@ -1,9 +1,3 @@
-"""
-backend/app/core/utils.py
--------------------------
-Shared utility functions: logging, date/amount parsing.
-"""
-
 import logging
 import re
 from datetime import datetime
@@ -56,8 +50,7 @@ def parse_amount(amount_str: str) -> Optional[float]:
 
 def compute_field_breakdown(invoice: dict, ledger: dict) -> dict:
     """
-    Returns per-field similarity scores AND weighted contributions.
-    Used to build the explainability payload.
+    Returns per-field similarity scores AND weighted contributions. Used to build the explainability payload.
     """
     from app.services.similarity import (
         levenshtein_similarity, jaro_winkler,

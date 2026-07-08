@@ -1,18 +1,3 @@
-"""
-services/similarity.py
------------------------
-Compute a weighted similarity score between a preprocessed invoice
-and a preprocessed ledger entry.
-
-Algorithms used (all rule/formula-based, zero ML):
-  • Invoice number : Levenshtein ratio
-  • Vendor name    : Jaro-Winkler similarity
-  • Date           : Tolerance-window similarity
-  • Amount         : Relative-error similarity
-
-Final score = w1*s_invoice + w2*s_vendor + w3*s_date + w4*s_amount
-"""
-
 from __future__ import annotations
 
 import math
@@ -21,22 +6,14 @@ from typing import Optional
 
 import numpy as np
 
-from app.config import AMOUNT_TOLERANCE_PERCENT, DATE_TOLERANCE_DAYS, WEIGHTS
+from app.core.config import AMOUNT_TOLERANCE_PERCENT, DATE_TOLERANCE_DAYS, WEIGHTS
 from app.core.utils import get_logger
 
 logger = get_logger(__name__)
 
-
-# ---------------------------------------------------------------------------
 # Levenshtein similarity
-# ---------------------------------------------------------------------------
-
 def levenshtein_distance(s1: str, s2: str) -> int:
-    """
-    Classic dynamic-programming Levenshtein edit distance.
-    Returns the minimum number of single-character edits (insert, delete,
-    substitute) required to transform s1 into s2.
-    """
+
     m, n = len(s1), len(s2)
     # dp[i][j] = edit distance between s1[:i] and s2[:j]
     dp = [[0] * (n + 1) for _ in range(m + 1)]
@@ -61,10 +38,7 @@ def levenshtein_distance(s1: str, s2: str) -> int:
 
 
 def levenshtein_similarity(s1: str, s2: str) -> float:
-    """
-    Normalised Levenshtein similarity ∈ [0, 1].
-    1.0 = identical strings; 0.0 = completely different.
-    """
+
     if not s1 and not s2:
         return 1.0
     if not s1 or not s2:
@@ -73,16 +47,9 @@ def levenshtein_similarity(s1: str, s2: str) -> float:
     max_len = max(len(s1), len(s2))
     return 1.0 - dist / max_len
 
-
-# ---------------------------------------------------------------------------
 # Jaro-Winkler similarity
-# ---------------------------------------------------------------------------
-
 def jaro_similarity(s1: str, s2: str) -> float:
-    """
-    Jaro similarity ∈ [0, 1].
-    Accounts for character transpositions — good for short strings.
-    """
+
     if s1 == s2:
         return 1.0
     if not s1 or not s2:
@@ -132,11 +99,7 @@ def jaro_similarity(s1: str, s2: str) -> float:
 
 
 def jaro_winkler(s1: str, s2: str, p: float = 0.1) -> float:
-    """
-    Jaro-Winkler similarity ∈ [0, 1].
-    Boosts score for strings that share a common prefix (up to 4 chars).
-    p = prefix scaling factor (standard = 0.1).
-    """
+
     if not s1 and not s2:
         return 1.0
     if not s1 or not s2:
@@ -155,19 +118,9 @@ def jaro_winkler(s1: str, s2: str, p: float = 0.1) -> float:
     return jaro + prefix_len * p * (1 - jaro)
 
 
-# ---------------------------------------------------------------------------
 # Date similarity
-# ---------------------------------------------------------------------------
-
 def date_similarity(d1: Optional[datetime], d2: Optional[datetime]) -> float:
-    """
-    Date similarity ∈ [0, 1].
-    • Both None    → 0.5 (neutral; no information either way)
-    • One None     → 0.0
-    • |diff| == 0  → 1.0
-    • |diff| <= tolerance → linear decay to 0.5
-    • |diff| > tolerance  → 0.0
-    """
+
     if d1 is None and d2 is None:
         return 0.5
     if d1 is None or d2 is None:
@@ -182,21 +135,12 @@ def date_similarity(d1: Optional[datetime], d2: Optional[datetime]) -> float:
     return 0.0
 
 
-# ---------------------------------------------------------------------------
 # Amount similarity
-# ---------------------------------------------------------------------------
-
 def amount_similarity(
     a1: Optional[float],
     a2: Optional[float],
 ) -> float:
-    """
-    Amount similarity ∈ [0, 1].
-    • Both None      → 0.5 (neutral)
-    • One None       → 0.0
-    • Relative error ≤ AMOUNT_TOLERANCE_PERCENT → 1.0
-    • Otherwise      → exponential decay based on relative error
-    """
+       
     if a1 is None and a2 is None:
         return 0.5
     if a1 is None or a2 is None:
@@ -215,26 +159,9 @@ def amount_similarity(
     return math.exp(-10 * relative_error)
 
 
-# ---------------------------------------------------------------------------
 # Composite similarity score
-# ---------------------------------------------------------------------------
-
 def compute_similarity(invoice: dict, ledger: dict) -> float:
-    """
-    Compute the weighted similarity score between one preprocessed invoice
-    and one preprocessed ledger entry.
-
-    Parameters
-    ----------
-    invoice : dict with keys normalized_invoice_number, normalized_vendor,
-              parsed_date, parsed_amount
-    ledger  : dict with keys normalized_reference, normalized_vendor,
-              parsed_date, debit_amount (and optionally credit_amount)
-
-    Returns
-    -------
-    float ∈ [0, 1]
-    """
+    
     s_invoice = levenshtein_similarity(
         invoice.get("normalized_invoice_number", ""),
         ledger.get("normalized_reference", ""),
@@ -274,15 +201,10 @@ def compute_similarity(invoice: dict, ledger: dict) -> float:
 
     return final_score
 
-
-# ---------------------------------------------------------------------------
 # Score matrix builder
-# ---------------------------------------------------------------------------
-
 def build_score_matrix(invoices: list[dict], ledger_entries: list[dict]) -> np.ndarray:
     """
-    Build an (n_invoices × n_ledger) numpy array of similarity scores.
-    This matrix is fed directly into optimizer.py.
+    Build an (n_invoices × n_ledger) numpy array of similarity scores. This matrix is fed directly into optimizer.py.
     """
     n = len(invoices)
     m = len(ledger_entries)
