@@ -160,46 +160,77 @@ def amount_similarity(
 
 
 # Composite similarity score
+def _ledger_amount(ledger: dict) -> Optional[float]:
+    """Use debit_amount as primary; fall back to credit_amount."""
+    debit = ledger.get("debit_amount")
+    return debit if debit is not None else ledger.get("credit_amount")
+
+
+def field_scores(invoice: dict, ledger: dict) -> dict[str, float]:
+    """Per-field similarity scores ∈ [0, 1] for one invoice ↔ ledger pair."""
+    return {
+        "invoice_number": levenshtein_similarity(
+            invoice.get("normalized_invoice_number", ""),
+            ledger.get("normalized_reference", ""),
+        ),
+        "vendor": jaro_winkler(
+            invoice.get("normalized_vendor", ""),
+            ledger.get("normalized_vendor", ""),
+        ),
+        "date": date_similarity(
+            invoice.get("parsed_date"),
+            ledger.get("parsed_date"),
+        ),
+        "amount": amount_similarity(
+            invoice.get("parsed_amount"),
+            _ledger_amount(ledger),
+        ),
+    }
+
+
 def compute_similarity(invoice: dict, ledger: dict) -> float:
-    
-    s_invoice = levenshtein_similarity(
-        invoice.get("normalized_invoice_number", ""),
-        ledger.get("normalized_reference", ""),
-    )
-
-    s_vendor = jaro_winkler(
-        invoice.get("normalized_vendor", ""),
-        ledger.get("normalized_vendor", ""),
-    )
-
-    s_date = date_similarity(
-        invoice.get("parsed_date"),
-        ledger.get("parsed_date"),
-    )
-
-    # Use debit_amount as primary; fall back to credit_amount
-    ledger_amount = ledger.get("debit_amount") or ledger.get("credit_amount")
-    s_amount = amount_similarity(
-        invoice.get("parsed_amount"),
-        ledger_amount,
-    )
-
-    w = WEIGHTS
-    final_score = (
-        w["invoice_number"] * s_invoice +
-        w["vendor"]         * s_vendor  +
-        w["date"]           * s_date    +
-        w["amount"]         * s_amount
-    )
+    """Weighted sum of the four field scores."""
+    scores = field_scores(invoice, ledger)
+    final_score = sum(WEIGHTS[field] * score for field, score in scores.items())
 
     logger.debug(
         "Similarity: inv=%s ref=%s → s_inv=%.3f s_ven=%.3f s_date=%.3f s_amt=%.3f → final=%.4f",
         invoice.get("normalized_invoice_number"),
         ledger.get("normalized_reference"),
-        s_invoice, s_vendor, s_date, s_amount, final_score,
+        scores["invoice_number"], scores["vendor"], scores["date"], scores["amount"],
+        final_score,
     )
 
     return final_score
+
+
+def compute_field_breakdown(invoice: dict, ledger: dict) -> dict:
+    """
+    Per-field similarity scores AND weighted contributions, alongside the raw
+    values that were compared. Used to build the explainability payload.
+    """
+    scores = field_scores(invoice, ledger)
+
+    def _stringify(value: object) -> str:
+        return "" if value is None else str(value)
+
+    raw_values = {
+        "invoice_number": (invoice.get("invoice_number"), ledger.get("reference")),
+        "vendor":         (invoice.get("vendor_name"),    ledger.get("vendor")),
+        "date":           (invoice.get("date"),           ledger.get("date")),
+        "amount":         (invoice.get("amount"),         ledger.get("debit") or ledger.get("credit")),
+    }
+
+    return {
+        field: {
+            "score":         round(score, 4),
+            "weight":        WEIGHTS[field],
+            "contribution":  round(score * WEIGHTS[field], 4),
+            "invoice_value": _stringify(raw_values[field][0]),
+            "ledger_value":  _stringify(raw_values[field][1]),
+        }
+        for field, score in scores.items()
+    }
 
 # Score matrix builder
 def build_score_matrix(invoices: list[dict], ledger_entries: list[dict]) -> np.ndarray:

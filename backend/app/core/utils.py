@@ -3,103 +3,83 @@ import re
 from datetime import datetime
 from typing import Optional
 
-from app.core.config import WEIGHTS
+from app.core.config import LOG_LEVEL
 
 
 def get_logger(name: str) -> logging.Logger:
     logging.basicConfig(
         format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
         datefmt="%Y-%m-%d %H:%M:%S",
-        level=logging.INFO,
+        level=LOG_LEVEL,
     )
     return logging.getLogger(name)
 
 
+logger = get_logger(__name__)
+
+
+# Date parsing
 _DATE_FORMATS = [
     "%d/%m/%Y", "%m/%d/%Y", "%Y-%m-%d", "%d-%m-%Y",
-    "%d.%m.%Y", "%Y/%m/%d", "%d/%m/%y", "%m/%d/%y",
-    "%d %b %Y", "%d %B %Y", "%b %d, %Y", "%B %d, %Y",
-    "%b %d %Y", "%B %d %Y",
+    "%d.%m.%Y", "%Y/%m/%d",
+    "%Y-%m-%d %H:%M:%S",
+    "%d %b %Y", "%d %B %Y",
+    "%b %d, %Y", "%B %d, %Y",
+    "%b %d %Y",  "%B %d %Y",
+    "%d/%m/%y",  "%m/%d/%y",
+    "%d-%b-%Y", "%d-%B-%Y", "%d-%b-%y", "%d-%B-%y",
+    "%d.%b.%Y", "%d.%B.%Y",
 ]
 
 
-def parse_date(date_str: str) -> Optional[datetime]:
+def parse_date(date_str: Optional[str]) -> Optional[datetime]:
+    """
+    Parse a date string against the known formats (day-first wins on
+    ambiguous dd/mm vs mm/dd input).
+
+    Dates more than a year in the future are rejected: they are almost
+    always Bikram Sambat (Nepali calendar) dates such as "2082-10-15" that
+    happen to fit a Gregorian format, and comparing them against Gregorian
+    dates would produce meaningless scores.
+    """
     if not date_str:
         return None
-    cleaned = re.sub(r"\s+", " ", date_str.strip().rstrip(","))
+    cleaned = re.sub(r"\s+", " ", str(date_str).strip().rstrip(","))
     for fmt in _DATE_FORMATS:
         try:
-            return datetime.strptime(cleaned, fmt)
+            parsed = datetime.strptime(cleaned, fmt)
         except ValueError:
             continue
+
+        if parsed.year > datetime.now().year + 1:
+            logger.warning(
+                "parse_date: %r parsed to implausible year %d (likely a "
+                "non-Gregorian calendar date) — treating as unparseable.",
+                date_str, parsed.year,
+            )
+            return None
+
+        return parsed
+    logger.debug("parse_date: could not parse date string %r with any known format.", date_str)
     return None
 
 
-def parse_amount(amount_str: str) -> Optional[float]:
-    if not amount_str:
+# Amount parsing
+_AMOUNT_RE = re.compile(r"\d[\d,]*(?:\.\d+)?|\.\d+")
+
+
+def parse_amount(amount_str: Optional[str]) -> Optional[float]:
+    """
+    Extract the numeric value from an amount string such as "45,000.00",
+    "Rs. 12,500.50" or "NPR 1,23,456". Currency symbols, prefixes and
+    thousands separators are ignored; the first number found is used.
+    """
+    if amount_str is None or amount_str == "":
         return None
-    cleaned = re.sub(r"[^\d.]", "", str(amount_str))
-    parts = cleaned.split(".")
-    if len(parts) > 2:
-        cleaned = "".join(parts[:-1]) + "." + parts[-1]
+    m = _AMOUNT_RE.search(str(amount_str))
+    if not m:
+        return None
     try:
-        return float(cleaned)
+        return float(m.group().replace(",", ""))
     except ValueError:
         return None
-
-
-def compute_field_breakdown(invoice: dict, ledger: dict) -> dict:
-    """
-    Returns per-field similarity scores AND weighted contributions. Used to build the explainability payload.
-    """
-    from app.services.similarity import (
-        levenshtein_similarity, jaro_winkler,
-        date_similarity, amount_similarity,
-    )
-
-    s_inv = levenshtein_similarity(
-        invoice.get("normalized_invoice_number", ""),
-        ledger.get("normalized_reference", ""),
-    )
-    s_ven = jaro_winkler(
-        invoice.get("normalized_vendor", ""),
-        ledger.get("normalized_vendor", ""),
-    )
-    ledger_amount = ledger.get("debit_amount") or ledger.get("credit_amount")
-    s_date = date_similarity(invoice.get("parsed_date"), ledger.get("parsed_date"))
-    s_amt  = amount_similarity(invoice.get("parsed_amount"), ledger_amount)
-
-    w = WEIGHTS
-    def _stringify(value: object) -> str:
-        return "" if value is None else str(value)
-
-    return {
-        "invoice_number": {
-            "score": round(s_inv, 4),
-            "weight": w["invoice_number"],
-            "contribution": round(s_inv * w["invoice_number"], 4),
-            "invoice_value": _stringify(invoice.get("invoice_number")),
-            "ledger_value":  _stringify(ledger.get("reference")),
-        },
-        "vendor": {
-            "score": round(s_ven, 4),
-            "weight": w["vendor"],
-            "contribution": round(s_ven * w["vendor"], 4),
-            "invoice_value": _stringify(invoice.get("vendor_name")),
-            "ledger_value":  _stringify(ledger.get("vendor")),
-        },
-        "date": {
-            "score": round(s_date, 4),
-            "weight": w["date"],
-            "contribution": round(s_date * w["date"], 4),
-            "invoice_value": _stringify(invoice.get("date")),
-            "ledger_value":  _stringify(ledger.get("date")),
-        },
-        "amount": {
-            "score": round(s_amt, 4),
-            "weight": w["amount"],
-            "contribution": round(s_amt * w["amount"], 4),
-            "invoice_value": _stringify(invoice.get("amount")),
-            "ledger_value":  _stringify(ledger.get("debit") or ledger.get("credit")),
-        },
-    }

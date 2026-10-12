@@ -109,24 +109,33 @@ function ErrorBanner({ message, onDismiss }) {
   );
 }
 
-function ProgressBanner({ message }) {
+function ProgressBanner({ message, busy }) {
   return (
     <div style={{
       display:"flex", alignItems:"center", gap:12, marginBottom:20,
       background:C.goldLight, border:`1px solid ${C.gold}33`,
       borderRadius:6, padding:"11px 16px",
     }}>
-      <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke={C.gold} strokeWidth="1.5">
-        <circle cx="8" cy="8" r="6" strokeDasharray="3 2" style={{ animation:"spin 1.2s linear infinite" }}/>
-        <style>{`@keyframes spin{to{transform:rotate(360deg);transform-origin:8px 8px}}`}</style>
-      </svg>
+      {busy ? (
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke={C.gold} strokeWidth="1.5"
+          strokeLinecap="round" style={{ animation:"matchit-spin 0.9s linear infinite", flexShrink:0 }}>
+          <style>{`@keyframes matchit-spin{to{transform:rotate(360deg)}}`}</style>
+          <circle cx="8" cy="8" r="6" strokeOpacity="0.25"/>
+          <path d="M8 2a6 6 0 0 1 6 6"/>
+        </svg>
+      ) : (
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke={C.gold} strokeWidth="1.5"
+          strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink:0 }}>
+          <circle cx="8" cy="8" r="6"/><polyline points="5.2 8.2 7.2 10.2 10.8 6.2"/>
+        </svg>
+      )}
       <span style={{ color:C.gold, fontSize:13 }}>{message}</span>
     </div>
   );
 }
 
 /* ── Upload section ──────────────────────────────────────────────────────── */
-function UploadSection({ step, sessionId, busy, invoiceFiles, setInvoiceFiles, ledgerFiles, setLedgerFiles, onInvoiceUpload, onLedgerUpload, onMatch }) {
+function UploadSection({ step, busy, invoiceFiles, setInvoiceFiles, ledgerFiles, setLedgerFiles, onInvoiceUpload, onLedgerUpload, onMatch }) {
 
   const btnPrimary = (disabled) => ({
     width:"100%", marginTop:10, padding:"11px",
@@ -146,8 +155,7 @@ function UploadSection({ step, sessionId, busy, invoiceFiles, setInvoiceFiles, l
         <div>
           <DropZone
             label="Invoice files"
-            sublabel="Excel, CSV, PDF or images"
-            accent={C.text}
+            sublabel="Invoice register or single invoices · .xlsx, .xls, .csv"
             files={invoiceFiles}
             onFiles={setInvoiceFiles}
             disabled={busy || step==="ledger_pending" || step==="ready"}
@@ -169,8 +177,7 @@ function UploadSection({ step, sessionId, busy, invoiceFiles, setInvoiceFiles, l
         <div>
           <DropZone
             label="Ledger file"
-            sublabel="Excel or CSV recommended"
-            accent={C.text}
+            sublabel="Ledger / subledger export · .xlsx, .xls, .csv"
             files={ledgerFiles}
             onFiles={setLedgerFiles}
             disabled={busy || step==="idle" || step==="ready"}
@@ -212,8 +219,8 @@ function MatchingAnim() {
   return (
     <div style={{ display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", padding:"80px 0", gap:20 }}>
       <div style={{ position:"relative", width:48, height:48 }}>
-        <svg viewBox="0 0 48 48" fill="none" style={{ position:"absolute", inset:0, animation:"spin 1.1s linear infinite" }}>
-          <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
+        <svg viewBox="0 0 48 48" fill="none" style={{ position:"absolute", inset:0, animation:"matchit-spin 1.1s linear infinite" }}>
+          <style>{`@keyframes matchit-spin{to{transform:rotate(360deg)}}`}</style>
           <circle cx="24" cy="24" r="20" stroke={C.border} strokeWidth="2"/>
           <path d="M24 4a20 20 0 0 1 20 20" stroke={C.text} strokeWidth="2" strokeLinecap="round"/>
         </svg>
@@ -244,13 +251,16 @@ function MatchingAnim() {
 }
 
 /* ── Filter tabs ─────────────────────────────────────────────────────────── */
-function FilterTabs({ filter, setFilter, summary }) {
+function FilterTabs({ filter, setFilter, matches }) {
+  const count = (key) => matches.filter(m => (m.override_status || m.status) === key).length;
   const tabs = [
-    { key:"all",        label:"All",        count:(summary?.auto_match_count||0)+(summary?.review_count||0)+(summary?.unmatched_count||0) },
-    { key:"auto_match", label:"Auto match", count:summary?.auto_match_count||0 },
-    { key:"review",     label:"Review",     count:summary?.review_count||0     },
-    { key:"unmatched",  label:"Unmatched",  count:summary?.unmatched_count||0  },
-  ];
+    { key:"all",        label:"All",        count:matches.length },
+    { key:"auto_match", label:"Auto match", count:count("auto_match") },
+    { key:"review",     label:"Review",     count:count("review")     },
+    { key:"unmatched",  label:"Unmatched",  count:count("unmatched")  },
+    { key:"confirmed",  label:"Confirmed",  count:count("confirmed")  },
+    { key:"rejected",   label:"Rejected",   count:count("rejected")   },
+  ].filter(t => t.count > 0 || ["all","auto_match","review","unmatched"].includes(t.key));
   return (
     <div style={{ display:"flex", gap:6, marginBottom:16, flexWrap:"wrap" }}>
       {tabs.map(t => (
@@ -279,13 +289,20 @@ function FilterTabs({ filter, setFilter, summary }) {
 export function MatchPage() {
   const navigate = useNavigate();
   const { step, sessionId, result, error, progress,
-    uploadInvoices, uploadLedger, runMatch, overrideMatch, reset } = useMatching();
+    uploadInvoices, uploadLedger, runMatch, overrideMatch, reset, dismissError } = useMatching();
 
   const [invoiceFiles, setInvoiceFiles] = useState([]);
   const [ledgerFiles,  setLedgerFiles]  = useState([]);
   const [filter,       setFilter]       = useState("all");
 
   const busy    = step==="uploading" || step==="matching";
+
+  const startOver = () => {
+    reset();
+    setInvoiceFiles([]);
+    setLedgerFiles([]);
+    setFilter("all");
+  };
   const matches = result?.matches ?? [];
   const filtered= filter==="all" ? matches : matches.filter(m=>(m.override_status||m.status)===filter);
 
@@ -321,7 +338,7 @@ export function MatchPage() {
         </div>
 
         {step!=="idle" && (
-          <button onClick={reset} style={{
+          <button onClick={startOver} disabled={busy} style={{
             display:"flex", alignItems:"center", gap:6,
             background:"none", border:`1px solid ${C.border}`,
             color:C.textMuted, fontSize:12, fontWeight:500,
@@ -344,13 +361,13 @@ export function MatchPage() {
         </div>
 
         {/* Banners */}
-        {error    && <ErrorBanner    message={error}    onDismiss={reset} />}
-        {progress && !error && <ProgressBanner message={progress} />}
+        {error    && <ErrorBanner    message={error}    onDismiss={dismissError} />}
+        {progress && !error && <ProgressBanner message={progress} busy={busy} />}
 
         {/* Upload */}
         {step!=="done" && step!=="matching" && (
           <UploadSection
-            step={step} sessionId={sessionId} busy={busy}
+            step={step} busy={busy}
             invoiceFiles={invoiceFiles} setInvoiceFiles={setInvoiceFiles}
             ledgerFiles={ledgerFiles}   setLedgerFiles={setLedgerFiles}
             onInvoiceUpload={async () => { if (invoiceFiles.length) await uploadInvoices(invoiceFiles); }}
@@ -367,7 +384,7 @@ export function MatchPage() {
           <div>
             <SummaryBar summary={result.summary} sessionId={sessionId} />
             <div style={{ height:28 }} />
-            <FilterTabs filter={filter} setFilter={setFilter} summary={result.summary} />
+            <FilterTabs filter={filter} setFilter={setFilter} matches={matches} />
             <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
               {filtered.length===0
                 ? <div style={{ textAlign:"center", padding:"60px 0", color:C.textMuted, fontSize:14 }}>No matches in this category.</div>

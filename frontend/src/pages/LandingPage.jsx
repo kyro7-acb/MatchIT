@@ -421,11 +421,11 @@ export function LandingPage() {
 
           <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 14 }}>
             {[
-              { icon: <IcoFile />,     title: "Multi-format extraction",   delay: 0,   body: "Excel, CSV, PDF, and scanned images all accepted. File type is detected automatically — OCR loads only when an image or PDF is uploaded." },
+              { icon: <IcoFile />,     title: "Smart spreadsheet parsing", delay: 0,   body: "Excel and CSV exports are read with pandas. Buried header rows, report titles, vendor context lines and single-invoice forms are detected automatically." },
               { icon: <IcoTarget />,   title: "Fuzzy field matching",      delay: 80,  body: "Levenshtein for reference numbers, Jaro-Winkler for vendor names, tolerance windows for dates, relative-error decay for amounts." },
               { icon: <IcoGrid />,     title: "Global optimisation",       delay: 160, body: "The Hungarian algorithm assigns every invoice to a ledger entry simultaneously, maximising total match quality — not a greedy pair-by-pair lookup." },
               { icon: <IcoEye />,      title: "Explainable scores",        delay: 0,   body: "Every match shows which fields matched, how closely, and how much each contributed to the final score. Nothing is hidden." },
-              { icon: <IcoLink size={22}/>, title: "Session persistence", delay: 80,  body: "Past reconciliation sessions are cached in PostgreSQL. Re-open any previous session and results are returned instantly." },
+              { icon: <IcoLink size={22}/>, title: "Session persistence", delay: 80,  body: "Every reconciliation session is stored in a SQL database (PostgreSQL or SQLite). Re-open any previous session and results are returned instantly." },
               { icon: <IcoDownload />, title: "Export and override",       delay: 160, body: "Download results as CSV or JSON. Override any automated decision with a note — all corrections are logged." },
             ].map(p => <FeatureCard key={p.title} {...p} />)}
           </div>
@@ -473,7 +473,7 @@ export function LandingPage() {
                   Supported formats
                 </div>
                 <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                  {[".xlsx",".csv",".pdf",".jpg",".png"].map(f => (
+                  {[".xlsx",".xls",".csv"].map(f => (
                     <span key={f} style={{
                       background: C.bgAlt, border: `1px solid ${C.border}`,
                       color: C.text, fontSize: 12, padding: "3px 10px",
@@ -487,7 +487,7 @@ export function LandingPage() {
 
           <div style={{ paddingTop: 4 }}>
             {[
-              { n:1, title:"Upload documents",      body:"Drop invoice files and ledger files. Excel and CSV are parsed directly; PDFs and images go through OCR." },
+              { n:1, title:"Upload documents",      body:"Drop your invoice files and ledger export. Excel and CSV files are parsed directly — no manual reformatting needed." },
               { n:2, title:"Field extraction",      body:"Invoice number, vendor name, date, and amount are identified from each file by rule-based detection." },
               { n:3, title:"Normalisation",         body:"Reference numbers, vendor names, dates, and amounts are cleaned and standardised before comparison." },
               { n:4, title:"Scoring and matching",  body:"A weighted similarity score is computed for every pair. The Hungarian algorithm finds the optimal global assignment." },
@@ -517,10 +517,10 @@ export function LandingPage() {
               </div>
 
               {[
-                { label:"7 pairs auto-matched",   sub:"Score ≥ 0.90 — no review needed",  dot:"#2A6016", bg:"#EEFBE8" },
-                { label:"2 flagged for review",   sub:"Score 0.70–0.89 — verify manually", dot:C.gold,    bg:C.goldLight },
-                { label:"1 invoice unmatched",    sub:"No ledger counterpart found",        dot:"#961010", bg:"#FBE8E8" },
-              ].map(({ label, sub, dot, bg }) => (
+                { label:"7 pairs auto-matched",   sub:"Score ≥ 0.90 — no review needed",  dot:"#2A6016" },
+                { label:"2 flagged for review",   sub:"Score 0.70–0.89 — verify manually", dot:C.gold    },
+                { label:"1 invoice unmatched",    sub:"No ledger counterpart found",        dot:"#961010" },
+              ].map(({ label, sub, dot }) => (
                 <div key={label} style={{
                   display: "flex", gap: 14, alignItems: "flex-start",
                   padding: "14px 0", borderBottom: `1px solid ${C.border}`,
@@ -627,7 +627,7 @@ export function LandingPage() {
               Try matchIT now <IcoArrowRight size={16} />
             </button>
             <div style={{ marginTop: 16, fontSize: 12, color: C.textMuted }}>
-              No sign-up required · Excel, CSV, PDF, and images accepted
+              No sign-up required · Excel and CSV files accepted
             </div>
           </div>
         </Reveal>

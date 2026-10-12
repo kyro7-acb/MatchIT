@@ -12,6 +12,8 @@ const C = {
   goldBg:    "#F0E8D0",
   red:       "#961010",
   redBg:     "#FBE8E8",
+  blue:      "#1A3A7A",
+  blueBg:    "#E8F0FB",
 };
 
 function Stat({ value, label, color, bg }) {
@@ -51,7 +53,18 @@ export function SummaryBar({ summary, sessionId }) {
   const auto  = summary.auto_match_count || 0;
   const rev   = summary.review_count || 0;
   const unm   = summary.unmatched_count || 0;
+  const conf  = summary.confirmed_count || 0;
+  const rej   = summary.rejected_count || 0;
   const skip  = summary.skipped_count || 0;
+  const pairs = auto + rev + unm + conf + rej;
+
+  const segments = [
+    { value:auto, color:C.green,     label:"auto-matched" },
+    { value:conf, color:C.blue,      label:"confirmed"    },
+    { value:rev,  color:C.gold,      label:"review"       },
+    { value:unm,  color:C.red,       label:"unmatched"    },
+    { value:rej,  color:C.textMuted, label:"rejected"     },
+  ].filter(s => s.value > 0);
 
   return (
     <div style={{
@@ -115,44 +128,36 @@ export function SummaryBar({ summary, sessionId }) {
         <Stat value={auto}  label="Auto match" color={C.green} bg={C.greenBg} />
         <Stat value={rev}   label="Review"      color={C.gold}  bg={C.goldBg}  />
         <Stat value={unm}   label="Unmatched"   color={C.red}   bg={C.redBg}   />
+        {conf > 0 && <Stat value={conf} label="Confirmed" color={C.blue} bg={C.blueBg} />}
+        {rej  > 0 && <Stat value={rej}  label="Rejected"  color={C.textMuted} bg={C.bgAlt} />}
         <Stat value={skip}  label="Skipped"     color={C.textMuted} bg={C.bgAlt} />
       </div>
 
       {/* stacked progress bar */}
-      {total > 0 && (
+      {pairs > 0 && (
         <div>
           <div style={{
             display:"flex", height:5,
             borderRadius:3, overflow:"hidden",
             background:C.bgAlt,
           }}>
-            <div style={{
-              width:`${(auto / total) * 100}%`,
-              background:C.green,
-              transition:"width 0.6s cubic-bezier(.2,1,.3,1)",
-            }} />
-            <div style={{
-              width:`${(rev / total) * 100}%`,
-              background:C.gold,
-              transition:"width 0.6s cubic-bezier(.2,1,.3,1) 0.05s",
-            }} />
-            <div style={{
-              width:`${(unm / total) * 100}%`,
-              background:C.red,
-              transition:"width 0.6s cubic-bezier(.2,1,.3,1) 0.1s",
-            }} />
+            {segments.map((seg, i) => (
+              <div key={seg.label} style={{
+                width:`${(seg.value / pairs) * 100}%`,
+                background:seg.color,
+                transition:`width 0.6s cubic-bezier(.2,1,.3,1) ${i * 0.05}s`,
+              }} />
+            ))}
           </div>
           <div style={{
-            display:"flex", gap:16, marginTop:8,
+            display:"flex", gap:16, marginTop:8, flexWrap:"wrap",
           }}>
-            {[
-              { color:C.green,     label:`${Math.round((auto/total)*100)}% auto-matched` },
-              { color:C.gold,      label:`${Math.round((rev/total)*100)}% review` },
-              { color:C.red,       label:`${Math.round((unm/total)*100)}% unmatched` },
-            ].map(({ color, label }) => (
+            {segments.map(({ value, color, label }) => (
               <div key={label} style={{ display:"flex", alignItems:"center", gap:5 }}>
                 <div style={{ width:6, height:6, borderRadius:"50%", background:color }} />
-                <span style={{ fontSize:11, color:C.textMuted }}>{label}</span>
+                <span style={{ fontSize:11, color:C.textMuted }}>
+                  {Math.round((value / pairs) * 100)}% {label}
+                </span>
               </div>
             ))}
           </div>

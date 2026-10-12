@@ -1,9 +1,8 @@
 from datetime import datetime
 from sqlalchemy import (
-    Column, String, Float, Integer, DateTime, Text,
+    Column, String, Float, DateTime, Text,
     ForeignKey, Boolean, JSON, Enum as SAEnum
 )
-from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship, declarative_base
 import uuid
 import enum
@@ -56,7 +55,6 @@ class Invoice(Base):
     parsed_amount       = Column(Float, nullable=True)
     normalized_invoice_number = Column(String, nullable=True)
     normalized_vendor   = Column(String, nullable=True)
-    raw_text            = Column(Text, nullable=True)
     created_at          = Column(DateTime, default=datetime.utcnow)
 
     session             = relationship("UploadSession", back_populates="invoices")

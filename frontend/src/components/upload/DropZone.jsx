@@ -11,7 +11,8 @@ const C = {
   greenBg:   "#EEFBE8",
 };
 
-const ACCEPT = ".jpg,.jpeg,.png,.pdf,.xlsx,.xls,.csv";
+const EXTENSIONS = [".xlsx", ".xls", ".csv"];
+const ACCEPT     = EXTENSIONS.join(",");
 
 function IcoCheck() {
   return (
@@ -32,7 +33,7 @@ function IcoFile() {
   );
 }
 
-export function DropZone({ label, sublabel, files = [], onFiles, disabled, done, accent }) {
+export function DropZone({ label, sublabel, files = [], onFiles, disabled, done }) {
   const inputRef = useRef(null);
   const [drag,   setDrag]  = useState(false);
 
@@ -40,7 +41,7 @@ export function DropZone({ label, sublabel, files = [], onFiles, disabled, done,
     if (disabled) return;
     const arr = Array.from(incoming).filter(f => {
       const ext = "." + f.name.split(".").pop().toLowerCase();
-      return ACCEPT.includes(ext);
+      return EXTENSIONS.includes(ext);
     });
     if (arr.length) onFiles(arr);
   };
@@ -71,7 +72,7 @@ export function DropZone({ label, sublabel, files = [], onFiles, disabled, done,
         multiple
         accept={ACCEPT}
         style={{ display:"none" }}
-        onChange={e => handle(e.target.files)}
+        onChange={e => { handle(e.target.files); e.target.value = ""; }}
         disabled={disabled}
       />
 
@@ -115,8 +116,8 @@ export function DropZone({ label, sublabel, files = [], onFiles, disabled, done,
         {/* file chips */}
         {files.length > 0 && (
           <div style={{ width:"100%", display:"flex", flexDirection:"column", gap:4, marginTop:4 }}>
-            {files.map((f, i) => (
-              <div key={i} style={{
+            {files.map((f) => (
+              <div key={`${f.name}-${f.size}`} style={{
                 display:"flex", alignItems:"center", gap:7,
                 background:C.bg,
                 border:`1px solid ${C.border}`,
@@ -133,7 +134,7 @@ export function DropZone({ label, sublabel, files = [], onFiles, disabled, done,
                   {f.name}
                 </span>
                 <span style={{ flexShrink:0, fontFamily:"monospace" }}>
-                  {(f.size / 1024).toFixed(0)} KB
+                  {Math.max(1, Math.round(f.size / 1024))} KB
                 </span>
               </div>
             ))}

@@ -10,10 +10,10 @@ const C = {
 };
 
 const FIELDS = {
-  invoice_number: { label:"Invoice number", weight:"40%" },
-  vendor:         { label:"Vendor name",    weight:"25%" },
-  date:           { label:"Date",           weight:"20%" },
-  amount:         { label:"Amount",         weight:"15%" },
+  invoice_number: "Invoice number",
+  vendor:         "Vendor name",
+  date:           "Date",
+  amount:         "Amount",
 };
 
 export function ExplainPanel({ breakdown, totalScore }) {
@@ -47,9 +47,9 @@ export function ExplainPanel({ breakdown, totalScore }) {
       </div>
 
       {/* rows */}
-      {Object.entries(breakdown).map(([field, data], i) => {
-        const meta   = FIELDS[field] || { label:field, weight:"" };
-        const isLast = i === Object.entries(breakdown).length - 1;
+      {Object.entries(breakdown).map(([field, data], i, all) => {
+        const label  = FIELDS[field] || field;
+        const isLast = i === all.length - 1;
         const match  = data.score >= 0.9;
         const partial= data.score >= 0.6 && data.score < 0.9;
         const valBg  = match ? "#EEFBE8" : partial ? "#F0E8D0" : "#FBE8E8";
@@ -66,8 +66,8 @@ export function ExplainPanel({ breakdown, totalScore }) {
           }}>
             {/* field name + weight */}
             <div>
-              <div style={{ fontSize:12, fontWeight:500, color:C.text }}>{meta.label}</div>
-              <div style={{ fontSize:10, color:C.textMuted, marginTop:1 }}>weight {meta.weight}</div>
+              <div style={{ fontSize:12, fontWeight:500, color:C.text }}>{label}</div>
+              <div style={{ fontSize:10, color:C.textMuted, marginTop:1 }}>weight {Math.round(data.weight * 100)}%</div>
             </div>
 
             {/* values */}
