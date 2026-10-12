@@ -1,11 +1,10 @@
 from __future__ import annotations
 
 import re
-from datetime import datetime
 from typing import Optional
 
 from app.core.config import VENDOR_STOPWORDS
-from app.core.utils import get_logger
+from app.core.utils import get_logger, parse_amount, parse_date
 
 logger = get_logger(__name__)
 
@@ -41,57 +40,6 @@ def normalize_vendor(text: Optional[str]) -> str:
     tokens = base.split()
     filtered = [t for t in tokens if t not in VENDOR_STOPWORDS]
     return " ".join(filtered).strip()
-
-# Date parsing
-_DATE_FORMATS = [
-    "%d/%m/%Y", "%m/%d/%Y", "%Y-%m-%d", "%d-%m-%Y",
-    "%d.%m.%Y", "%Y/%m/%d",
-    "%d %b %Y", "%d %B %Y",
-    "%b %d, %Y", "%B %d, %Y",
-    "%b %d %Y",  "%B %d %Y",
-    "%d/%m/%y",  "%m/%d/%y",
-    "%d-%b-%Y", "%d-%B-%Y", "%d-%b-%y", "%d-%B-%y",
-    "%d.%b.%Y", "%d.%B.%Y",
-]
-
-def parse_date(date_str: str) -> Optional[datetime]:
- 
-    if not date_str:
-        return None
-    cleaned = re.sub(r"\s+", " ", date_str.strip().rstrip(","))
-    for fmt in _DATE_FORMATS:
-        try:
-            parsed = datetime.strptime(cleaned, fmt)
-        except ValueError:
-            continue
- 
-        if not (parsed.year >= datetime.now().year + 1):
-            logger.warning(
-                "parse_date: %r parsed to implausible year %d (likely a "
-                "non-Gregorian calendar date) — treating as unparseable.",
-                date_str, parsed.year,
-            )
-            return None
- 
-        return parsed
-    logger.warning("parse_date: could not parse date string %r with any known format.", date_str)
-    return None
-
-# Amount parsing
-def parse_amount(amount_str: str) -> Optional[float]:
-
-    if not amount_str:
-        return None
-    # Remove currency symbols and thousands separators
-    cleaned = re.sub(r"[^\d.]", "", str(amount_str))
-    # Handle multiple dots (keep only last as decimal point)
-    parts = cleaned.split(".")
-    if len(parts) > 2:
-        cleaned = "".join(parts[:-1]) + "." + parts[-1]
-    try:
-        return float(cleaned)
-    except ValueError:
-        return None
 
 # Invoice normalization
 def preprocess_invoice(invoice: dict) -> dict:

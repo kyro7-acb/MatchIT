@@ -1,6 +1,11 @@
-import re
 import os
+import tempfile
 from pathlib import Path
+
+from dotenv import load_dotenv
+
+# Load settings from backend/.env (if present) before reading env vars below.
+load_dotenv(Path(__file__).resolve().parents[2] / ".env")
 
 # Similarity weights (must sum to 1.0)
 WEIGHTS = {
@@ -20,17 +25,20 @@ THRESHOLDS = {
 DATE_TOLERANCE_DAYS       = 3
 AMOUNT_TOLERANCE_PERCENT  = 0.01
 
+# Candidate filtering: ledger entries further than this from every invoice
+# date are dropped before scoring.
+CANDIDATE_WINDOW_DAYS = 60
+
 # File upload settings
 MAX_FILE_SIZE_MB   = 20
-ALLOWED_EXTENSIONS = {".jpg", ".jpeg", ".png", ".pdf", ".xlsx", ".xls", ".csv"}
-UPLOAD_DIR         = Path(os.getenv("UPLOAD_DIR", "/tmp/matchit_uploads"))
+ALLOWED_EXTENSIONS = {".xlsx", ".xls", ".csv"}
+UPLOAD_DIR         = Path(os.getenv("UPLOAD_DIR", Path(tempfile.gettempdir()) / "matchit_uploads"))
 UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
 
-# Database
-DATABASE_URL = os.getenv(
-    "DATABASE_URL",
-    "postgresql+asyncpg://postgres:ayush123%40K@localhost:5432/postgres"
-)
+# Database — PostgreSQL in production, SQLite works out of the box for local use.
+#   PostgreSQL: postgresql+asyncpg://user:password@localhost:5432/matchit
+#   SQLite:     sqlite+aiosqlite:///./matchit.db
+DATABASE_URL = os.getenv("DATABASE_URL", "sqlite+aiosqlite:///./matchit.db")
 
 # CORS origins
 CORS_ORIGINS = os.getenv("CORS_ORIGINS", "http://localhost:5173,http://localhost:3000").split(",")
@@ -41,29 +49,4 @@ VENDOR_STOPWORDS = {
     "llc", "co", "company", "corp", "corporation", "and", "the",
 }
 
-# Regex patterns
-PATTERNS = {
-    "invoice_number": re.compile(
-        r"(?:invoice\s*(?:no|num|number|#)|inv\.?\s*(?:no|#)?)\s*[:\-]?\s*([A-Z0-9][\w\-/]{2,20})",
-        re.IGNORECASE,
-    ),
-    "date": re.compile(
-        r"(\d{1,2}[\/\-\.]\d{1,2}[\/\-\.]\d{2,4}"
-        r"|\d{4}[\/\-\.]\d{1,2}[\/\-\.]\d{1,2}"
-        r"|\d{1,2}\s+(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\s+\d{4}"
-        r"|(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\s+\d{1,2},?\s+\d{4})",
-        re.IGNORECASE,
-    ),
-    "amount": re.compile(
-        r"(?:total|amount|amt|grand\s*total|net\s*amount|payable)\s*[:\-]?\s*"
-        r"(?:USD|EUR|GBP|NPR|Rs\.?|INR|\$|\u20ac|\xa3)?\s*([\d,]+(?:\.\d{1,2})?)",
-        re.IGNORECASE,
-    ),
-    "currency_amount": re.compile(
-        r"(?:USD|EUR|GBP|NPR|Rs\.?|INR|\$|\u20ac|\xa3)\s*([\d,]+(?:\.\d{1,2})?)"
-        r"|([\d,]+(?:\.\d{1,2})?)\s*(?:USD|EUR|GBP|NPR|Rs\.?|INR)",
-        re.IGNORECASE,
-    ),
-}
-
-LOG_LEVEL = "INFO"   # DEBUG | INFO | WARNING | ERROR
+LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO")   # DEBUG | INFO | WARNING | ERROR

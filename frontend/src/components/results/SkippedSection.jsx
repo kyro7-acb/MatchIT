@@ -64,7 +64,7 @@ export function SkippedSection({ items }) {
               {items.length} skipped item{items.length > 1 ? "s" : ""}
             </div>
             <div style={{ fontSize:11, color:C.textMuted, marginTop:1 }}>
-              Filtered out before matching — click to see reasons
+              Left out of matching — click to see reasons
             </div>
           </div>
         </div>
@@ -112,9 +112,10 @@ export function SkippedSection({ items }) {
                     marginTop:4, fontSize:11,
                     fontFamily:"monospace", color:C.textMuted,
                   }}>
-                    {Object.entries(item.detail).map(([k,v]) =>
-                      `${k}: ${v}`
-                    ).join(" · ")}
+                    {Object.entries(item.detail)
+                      .filter(([, v]) => v !== "" && v != null)
+                      .map(([k, v]) => `${k}: ${v}`)
+                      .join(" · ")}
                   </div>
                 )}
               </div>

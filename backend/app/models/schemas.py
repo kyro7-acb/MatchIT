@@ -87,6 +87,8 @@ class MatchSummary(BaseModel):
     auto_match_count:   int
     review_count:       int
     unmatched_count:    int
+    confirmed_count:    int = 0   # human overrides
+    rejected_count:     int = 0
     skipped_count:      int
 
 

@@ -1,6 +1,6 @@
 import csv
 import io
-import json
+from collections import Counter
 from datetime import datetime
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -10,7 +10,7 @@ from sqlalchemy import select, desc
 
 from app.core.utils import get_logger
 from app.db.session import get_db
-from app.db.models import UploadSession, MatchResultDB, MatchStatus
+from app.db.models import UploadSession, MatchResultDB
 from app.models.schemas import MatchResponse, OverrideRequest, SessionSummary, MatchSummary
 from app.services.matching_service import run_full_pipeline, get_cached_result
 
@@ -108,13 +108,12 @@ async def list_sessions(
 
         ms = None
         if match_rows:
-            auto = sum(1 for m in match_rows if (m.override_status or m.status.value) == "auto_match")
-            rev  = sum(1 for m in match_rows if (m.override_status or m.status.value) == "review")
-            unm  = sum(1 for m in match_rows if (m.override_status or m.status.value) == "unmatched")
-            ms   = MatchSummary(
+            counts = Counter(m.override_status or m.status.value for m in match_rows)
+            ms = MatchSummary(
                 total_invoices=0, total_ledger=0,
-                auto_match_count=auto, review_count=rev,
-                unmatched_count=unm, skipped_count=0,
+                auto_match_count=counts["auto_match"], review_count=counts["review"],
+                unmatched_count=counts["unmatched"], confirmed_count=counts["confirmed"],
+                rejected_count=counts["rejected"], skipped_count=0,
             )
 
         summaries.append(SessionSummary(
@@ -153,7 +152,7 @@ async def export_results(
     writer = csv.writer(output)
     writer.writerow([
         "match_id", "invoice_number", "invoice_vendor", "invoice_date", "invoice_amount",
-        "ledger_ref", "ledger_vendor", "ledger_date", "ledger_debit",
+        "ledger_ref", "ledger_vendor", "ledger_date", "ledger_amount",
         "score", "status",
         "inv_no_score", "vendor_score", "date_score", "amount_score",
         "is_overridden", "override_status", "override_note",
@@ -165,7 +164,7 @@ async def export_results(
             m.invoice.invoice_number, m.invoice.vendor_name,
             m.invoice.date, m.invoice.amount,
             m.ledger_entry.reference, m.ledger_entry.vendor,
-            m.ledger_entry.date, m.ledger_entry.debit,
+            m.ledger_entry.date, m.ledger_entry.debit or m.ledger_entry.credit,
             m.score, m.status,
             bd.invoice_number.score, bd.vendor.score, bd.date.score, bd.amount.score,
             m.is_overridden, m.override_status or "", m.override_note or "",

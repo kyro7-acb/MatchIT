@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 const C = {
   bg:        "#FFFFFF",
@@ -20,24 +20,39 @@ export function OverrideModal({ match, onConfirm, onClose }) {
   const [status, setStatus] = useState("confirmed");
   const [note,   setNote]   = useState("");
   const [busy,   setBusy]   = useState(false);
+  const [error,  setError]  = useState(null);
+
+  useEffect(() => {
+    const onKey = (e) => { if (e.key === "Escape" && !busy) onClose(); };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [busy, onClose]);
 
   const submit = async () => {
     setBusy(true);
-    await onConfirm(match.match_id, status, note);
-    setBusy(false);
-    onClose();
+    setError(null);
+    try {
+      await onConfirm(match.match_id, status, note);
+      onClose();
+    } catch (e) {
+      setError(e.message || "Could not save the override.");
+      setBusy(false);
+    }
   };
 
   return (
-    /* faux viewport — fixed won't work in iframe */
-    <div style={{
-      position:"absolute", inset:0, zIndex:200,
-      background:"rgba(15,12,8,0.45)",
-      display:"flex", alignItems:"center", justifyContent:"center",
-      padding:24,
-      minHeight:400,
-    }}>
-      <div style={{
+    <div
+      onClick={() => { if (!busy) onClose(); }}
+      style={{
+        position:"fixed", inset:0, zIndex:200,
+        background:"rgba(15,12,8,0.45)",
+        display:"flex", alignItems:"center", justifyContent:"center",
+        padding:24,
+      }}>
+      <div
+        role="dialog" aria-modal="true" aria-label="Override decision"
+        onClick={e => e.stopPropagation()}
+        style={{
         background:C.bg,
         border:`1px solid ${C.border}`,
         borderRadius:10,
@@ -127,6 +142,13 @@ export function OverrideModal({ match, onConfirm, onClose }) {
             onBlur={e  => e.target.style.borderColor = C.border}
           />
         </div>
+
+        {error && (
+          <div style={{ margin:"0 24px 14px", fontSize:12, color:"#961010",
+            background:"#FBE8E8", border:"1px solid #E8C4C4", borderRadius:6, padding:"8px 12px" }}>
+            {error}
+          </div>
+        )}
 
         {/* actions */}
         <div style={{

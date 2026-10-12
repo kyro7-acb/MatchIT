@@ -91,7 +91,6 @@ export function MatchCard({ match, onOverride }) {
     score, status,
     field_breakdown: bd,
     is_overridden, override_status, override_note,
-    match_id,
   } = match;
 
   const displayStatus = override_status || status;
@@ -99,11 +98,14 @@ export function MatchCard({ match, onOverride }) {
   const borderColor =
     displayStatus === "auto_match" ? "#C8E4C0" :
     displayStatus === "review"     ? "#E4D8B0" :
+    displayStatus === "confirmed"  ? "#C0D0E8" :
+    displayStatus === "rejected"   ? "#D8D4CC" :
                                      "#E4C0C0";
 
   /* which fields are "highlighted" (score ≥ 0.9) */
   const hl = {
     "Invoice number": bd?.invoice_number?.score >= 0.9,
+    "Reference":      bd?.invoice_number?.score >= 0.9,
     "Vendor":         bd?.vendor?.score         >= 0.9,
     "Date":           bd?.date?.score           >= 0.9,
     "Amount":         bd?.amount?.score         >= 0.9,
@@ -115,7 +117,7 @@ export function MatchCard({ match, onOverride }) {
         background:C.bg,
         border:`1px solid ${borderColor}`,
         borderRadius:8,
-        overflow: showOverride ? "visible" : "hidden",
+        overflow:"hidden",
         position:"relative",
         transition:"box-shadow 0.15s",
       }}
@@ -144,7 +146,7 @@ export function MatchCard({ match, onOverride }) {
               color:C.text, flexWrap:"wrap",
             }}>
               <span>{inv?.invoice_number || "No number"}</span>
-              <span style={{ color:C.border, fontFamily:"sans-serif", fontWeight:400 }}>↔</span>
+              <span style={{ color:C.borderMid, fontFamily:"sans-serif", fontWeight:400 }}>↔</span>
               <span>{led?.reference || "No reference"}</span>
             </div>
             <div style={{
@@ -190,7 +192,7 @@ export function MatchCard({ match, onOverride }) {
                   ["Reference", led?.reference, true],
                   ["Vendor",    led?.vendor,    true],
                   ["Date",      led?.date,      true],
-                  ["Debit",     led?.debit,     true],
+                  ["Amount",    led?.debit || led?.credit, true],
                   ["Source",    led?.source_file, false],
                 ]}
               />

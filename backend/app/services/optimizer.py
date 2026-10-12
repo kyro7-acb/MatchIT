@@ -5,6 +5,7 @@ from typing import NamedTuple
 import numpy as np
 from scipy.optimize import linear_sum_assignment
 
+from app.core.config import CANDIDATE_WINDOW_DAYS
 from app.core.utils import get_logger
 
 logger = get_logger(__name__)
@@ -57,7 +58,7 @@ def optimize_matches(score_matrix: np.ndarray) -> list[MatchResult]:
 def filter_candidates(
     invoices: list[dict],
     ledger_entries: list[dict],
-    max_days: int = 60,
+    max_days: int = CANDIDATE_WINDOW_DAYS,
 ) -> tuple[list[dict], list[dict]]:
 
     # Only filter when at least one invoice has a parsed date
